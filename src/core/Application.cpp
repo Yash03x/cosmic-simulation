@@ -64,6 +64,9 @@ bool Application::initialize() {
     // Enable VSync by default
     window_->setVSync(true);
 
+    // Initialize camera presets
+    initializePresets();
+
     // Print controls
     printControls();
 
@@ -111,7 +114,8 @@ void Application::render() {
 
     // Render UI on top
     ui_->newFrame();
-    ui_->render(*camera_, blackHole_.get(), *renderer_, deltaTime_, fps_);
+    ui_->render(*camera_, blackHole_.get(), *renderer_, deltaTime_, fps_,
+                activePresetNumber_, getActivePresetDescription());
     ui_->endFrame();
 }
 
@@ -171,6 +175,11 @@ void Application::processInput(float deltaTime) {
         camera_->setMovementSpeed(10.0f);
     }
 
+    // Clear active preset if user moves camera manually
+    if (forward != 0.0f || right != 0.0f || up != 0.0f) {
+        activePresetNumber_ = 0;
+    }
+
     camera_->processMovement(forward, right, up, deltaTime);
 
     // Mouse look (if cursor is captured and UI is not capturing)
@@ -190,7 +199,27 @@ void Application::processInput(float deltaTime) {
         lastMouseX_ = mouseX;
         lastMouseY_ = mouseY;
 
+        // Clear active preset if user looks around
+        if (xOffset != 0.0f || yOffset != 0.0f) {
+            activePresetNumber_ = 0;
+        }
+
         camera_->processMouseMovement(xOffset, yOffset);
+    }
+
+    // Camera presets (number keys 1-9)
+    for (int i = 1; i <= 9; i++) {
+        static bool numberKeyWasPressed[9] = {false};
+        int keyCode = GLFW_KEY_1 + (i - 1);
+
+        if (window_->isKeyPressed(keyCode)) {
+            if (!numberKeyWasPressed[i-1]) {
+                loadCameraPreset(i);
+                numberKeyWasPressed[i-1] = true;
+            }
+        } else {
+            numberKeyWasPressed[i-1] = false;
+        }
     }
 
     // Print stats with P key
@@ -227,7 +256,9 @@ void Application::printControls() {
     std::cout << "  Mouse      - Look around (press TAB to capture/release)\n";
     std::cout << "  SHIFT      - Speed boost\n";
     std::cout << "  TAB        - Toggle mouse capture\n";
+    std::cout << "  H          - Toggle UI\n";
     std::cout << "  P          - Print statistics\n";
+    std::cout << "  1-9        - Camera presets (instant teleport!)\n";
     std::cout << "  ESC        - Exit\n";
     std::cout << "\n";
 }
@@ -264,6 +295,57 @@ void Application::printStats() {
     }
 
     std::cout << "\n";
+}
+
+void Application::initializePresets() {
+    cameraPresets_.clear();
+
+    // Preset 1: Default - Safe distance, front view
+    cameraPresets_.push_back({glm::vec3(0.0f, 0.0f, 20.0f), -90.0f, 0.0f, "Default View (Safe Distance)"});
+
+    // Preset 2: Close-up - Near photon sphere
+    cameraPresets_.push_back({glm::vec3(0.0f, 0.0f, 4.0f), -90.0f, 0.0f, "Close-up (Near Photon Sphere)"});
+
+    // Preset 3: Side view - From the side
+    cameraPresets_.push_back({glm::vec3(15.0f, 0.0f, 0.0f), 0.0f, 0.0f, "Side View"});
+
+    // Preset 4: Top-down - Looking down at disk
+    cameraPresets_.push_back({glm::vec3(0.0f, 15.0f, 0.0f), -90.0f, -45.0f, "Top-Down (Disk View)"});
+
+    // Preset 5: Edge-on disk view
+    cameraPresets_.push_back({glm::vec3(0.0f, 0.2f, 12.0f), -90.0f, -2.0f, "Edge-On Disk"});
+
+    // Preset 6: Diagonal approach
+    cameraPresets_.push_back({glm::vec3(10.0f, 10.0f, 10.0f), -135.0f, -30.0f, "Diagonal View"});
+
+    // Preset 7: Far orbit
+    cameraPresets_.push_back({glm::vec3(30.0f, 0.0f, 0.0f), 0.0f, 0.0f, "Far Orbit"});
+
+    // Preset 8: Danger zone - Very close!
+    cameraPresets_.push_back({glm::vec3(0.0f, 0.0f, 2.5f), -90.0f, 0.0f, "DANGER! (Event Horizon)"});
+
+    // Preset 9: Above disk
+    cameraPresets_.push_back({glm::vec3(0.0f, 8.0f, 0.0f), -90.0f, -90.0f, "Above Disk (Bird's Eye)"});
+
+    std::cout << "Camera presets initialized (" << cameraPresets_.size() << " presets)\n";
+}
+
+void Application::loadCameraPreset(int presetNumber) {
+    if (presetNumber < 1 || presetNumber > static_cast<int>(cameraPresets_.size())) {
+        std::cout << "Invalid preset number: " << presetNumber << "\n";
+        return;
+    }
+
+    const auto& preset = cameraPresets_[presetNumber - 1];
+    camera_->setPosition(preset.position);
+    camera_->setYaw(preset.yaw);
+    camera_->setPitch(preset.pitch);
+    activePresetNumber_ = presetNumber;
+
+    std::cout << "\n✓ Loaded Preset " << presetNumber << ": " << preset.description << "\n";
+    std::cout << "  Position: (" << preset.position.x << ", "
+              << preset.position.y << ", " << preset.position.z << ")\n";
+    std::cout << "  Orientation: Yaw=" << preset.yaw << "°, Pitch=" << preset.pitch << "°\n\n";
 }
 
 } // namespace core

@@ -62,7 +62,9 @@ void UI::render(rendering::Camera& camera,
                 physics::Metric* metric,
                 rendering::Renderer& renderer,
                 float deltaTime,
-                float fps) {
+                float fps,
+                int activePresetNumber,
+                const std::string& activePresetDescription) {
     if (!visible_) return;
 
     // Reset change flags
@@ -72,7 +74,7 @@ void UI::render(rendering::Camera& camera,
     renderControlPanel(camera, metric, renderer);
 
     // Render statistics panel
-    renderStatsPanel(camera, metric, deltaTime, fps);
+    renderStatsPanel(camera, metric, deltaTime, fps, activePresetNumber, activePresetDescription);
 
     // Render about panel
     renderAboutPanel();
@@ -153,10 +155,12 @@ void UI::renderControlPanel(rendering::Camera& camera,
         }
 
         if (accretionDiskEnabled_) {
-            ImGui::Text("Coming soon: Full implementation");
-            ImGui::Text("- Temperature profile");
-            ImGui::Text("- Doppler shifts");
-            ImGui::Text("- Relativistic beaming");
+            ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "Active Features:");
+            ImGui::BulletText("Shakura-Sunyaev temperature profile");
+            ImGui::BulletText("Doppler shifts (blue/red)");
+            ImGui::BulletText("Relativistic beaming");
+            ImGui::BulletText("Keplerian orbital velocity");
+            ImGui::BulletText("Procedural turbulence");
         }
     }
 
@@ -198,7 +202,9 @@ void UI::renderControlPanel(rendering::Camera& camera,
 void UI::renderStatsPanel(rendering::Camera& camera,
                           physics::Metric* metric,
                           float deltaTime,
-                          float fps) {
+                          float fps,
+                          int activePresetNumber,
+                          const std::string& activePresetDescription) {
     ImGui::SetNextWindowPos(ImVec2(10, 430), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(350, 200), ImGuiCond_FirstUseEver);
 
@@ -209,7 +215,18 @@ void UI::renderStatsPanel(rendering::Camera& camera,
     ImGui::Separator();
     ImGui::Text("FPS: %.1f", fps);
     ImGui::Text("Frame time: %.2f ms", deltaTime * 1000.0f);
-    ImGui::Text("GPU time: TBD");
+    ImGui::TextDisabled("(Frame time includes GPU ray tracing)");
+
+    ImGui::Spacing();
+
+    // Camera Preset
+    if (activePresetNumber > 0) {
+        ImGui::Text("Camera");
+        ImGui::Separator();
+        ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f),
+                          "Preset %d: %s", activePresetNumber, activePresetDescription.c_str());
+        ImGui::Spacing();
+    }
 
     ImGui::Spacing();
 

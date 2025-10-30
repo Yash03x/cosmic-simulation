@@ -85,6 +85,20 @@ void Camera::setAspect(float aspect) {
     aspect_ = aspect;
 }
 
+void Camera::setYaw(float yaw) {
+    yaw_ = yaw;
+    updateCameraVectors();
+}
+
+void Camera::setPitch(float pitch, bool constrain) {
+    if (constrain) {
+        pitch_ = std::clamp(pitch, -89.0f, 89.0f);
+    } else {
+        pitch_ = pitch;
+    }
+    updateCameraVectors();
+}
+
 void Camera::updateCameraVectors() {
     // Calculate new front vector
     glm::vec3 newFront;

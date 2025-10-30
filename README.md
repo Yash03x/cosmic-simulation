@@ -8,9 +8,9 @@ A real-time 3D black hole simulator built with C++ and OpenGL, featuring physica
 
 **Physics Engine:**
 - ⚫ **Schwarzschild Metric** - Non-rotating black hole simulation
-- 🌀 **Geodesic Ray Tracing** - RK4 integration for accurate light paths
+- 🌀 **Ray Tracing with Gravitational Deflection** - Simplified inverse-cube approximation for real-time performance
 - 🔵 **Gravitational Lensing** - Real-time spacetime curvature effects
-- 📐 **Proper Coordinate Transforms** - Accurate Cartesian ↔ Spherical conversions
+- 📐 **Physics-Based Parameters** - Event horizon, photon sphere, ISCO calculations
 
 **Accretion Disk:**
 - 💿 **Realistic Geometry** - ISCO (r = 6M) to outer radius
@@ -96,6 +96,18 @@ cmake --build .
 - **Q/E** - Move down/up
 - **Mouse** - Look around (press TAB to capture/release cursor)
 - **SHIFT** - Speed boost (2x faster movement)
+- **1-9** - Load camera presets (9 predefined viewpoints)
+
+### Camera Presets
+1. **Default View** - Safe distance (20M)
+2. **Close-up** - Near photon sphere (4M)
+3. **Side View** - Perpendicular view (15M)
+4. **Top-Down** - Bird's eye view of disk
+5. **Edge-On Disk** - Thin disk view
+6. **Diagonal View** - 45° approach angle
+7. **Far Orbit** - Distant overview (30M)
+8. **DANGER!** - Very close to event horizon (2.5M)
+9. **Above Disk** - Straight down view
 
 ### UI
 - **H** - Toggle UI visibility
@@ -135,15 +147,20 @@ For a black hole of mass M:
 ds² = -(1 - 2M/r)dt² + (1 - 2M/r)⁻¹dr² + r²(dθ² + sin²θ dφ²)
 ```
 
-### Geodesic Equation
+### Ray Deflection Model
 
-Light paths follow null geodesics:
+Light paths in curved spacetime follow null geodesics described by:
 
 ```
 d²x^μ/dλ² + Γ^μ_αβ (dx^α/dλ)(dx^β/dλ) = 0
 ```
 
-Integrated numerically using **RK4** (Runge-Kutta 4th order) for accuracy.
+For real-time performance, the shader uses a **simplified deflection approximation**:
+```
+deflection ∝ rs³/r³
+```
+
+where `rs` is the Schwarzschild radius and `r` is the distance from the black hole. This inverse-cube law captures the qualitative gravitational lensing behavior while remaining GPU-friendly. The C++ codebase includes full RK4 geodesic integration for future high-accuracy offline rendering.
 
 ### Accretion Disk Physics
 
@@ -180,14 +197,11 @@ cosmic-simulation/
 │   └── rendering/
 ├── shaders/                # GLSL shaders
 │   ├── raytracer.vert      # Vertex shader
-│   ├── raytracer.frag      # Fragment shader (ray tracing)
-│   └── raytracer_v1.frag   # Backup of original shader
-├── external/               # Third-party libraries
-│   ├── glad/               # OpenGL loader
-│   ├── imgui/              # UI library
-│   └── stb/                # Image loading
-└── assets/                 # Textures, models
-    └── skybox/             # Background images
+│   └── raytracer.frag      # Fragment shader (ray tracing v2.0)
+└── external/               # Third-party libraries
+    ├── glad/               # OpenGL loader
+    ├── imgui/              # UI library
+    └── stb/                # Image loading
 ```
 
 ## Performance
@@ -218,19 +232,20 @@ cosmic-simulation/
 ### Ray Tracing Pipeline
 
 1. **Camera** generates ray directions (NDC → world space)
-2. **Transform** to spherical coordinates (r, θ, φ)
-3. **Convert Velocity** using proper Jacobian matrices
-4. **Integrate** geodesic equations (RK4, adaptive step size)
+2. **Ray March** through space with configurable step size
+3. **Apply Deflection** using simplified inverse-cube approximation
+4. **Enhanced Near Photon Sphere** - 1.5x deflection multiplier for visual effect
 5. **Check Termination** - Event horizon, escape, disk intersection
 6. **Sample Color** - Starfield, disk emission, blackbody radiation
 7. **Tone Map** - Reinhard + gamma correction
 
-### Numerical Methods
+### Implementation Details
 
-- **RK4 Integration** - 4th order Runge-Kutta for geodesics
-- **Adaptive Stepping** - Smaller steps near event horizon
-- **Coordinate Normalization** - Prevent θ, φ overflow
-- **Singularity Avoidance** - Special handling at r = 2M
+- **Simplified Deflection Model** - Inverse-cube law approximation (GPU-friendly)
+- **Configurable Ray Steps** - 1000-5000 max iterations for quality/performance balance
+- **Adjustable Step Size** - 0.01-0.5 units for precision control
+- **Photon Sphere Enhancement** - Artificially enhanced bending near r = 3M for dramatic effect
+- **Full RK4 Available** - C++ implementation exists for future offline high-accuracy rendering
 
 ## References
 

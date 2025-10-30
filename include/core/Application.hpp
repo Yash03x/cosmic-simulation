@@ -8,6 +8,8 @@
 #include "../physics/Schwarzschild.hpp"
 #include <memory>
 #include <chrono>
+#include <vector>
+#include <string>
 
 namespace cosmic {
 namespace core {
@@ -109,6 +111,45 @@ private:
      * @brief Print frame statistics
      */
     void printStats();
+
+    /**
+     * @brief Load camera preset by number (1-9)
+     * @param presetNumber Preset number
+     */
+    void loadCameraPreset(int presetNumber);
+
+    /**
+     * @brief Initialize camera presets
+     */
+    void initializePresets();
+
+    // Camera presets
+    struct CameraPreset {
+        glm::vec3 position;
+        float yaw;
+        float pitch;
+        std::string description;
+    };
+    std::vector<CameraPreset> cameraPresets_;
+    int activePresetNumber_ = 0;  // 0 = no preset, 1-9 = preset number
+
+public:
+    /**
+     * @brief Get active camera preset number
+     * @return Preset number (0 = no preset, 1-9 = preset number)
+     */
+    int getActivePresetNumber() const { return activePresetNumber_; }
+
+    /**
+     * @brief Get active camera preset description
+     * @return Description string, or empty if no preset active
+     */
+    std::string getActivePresetDescription() const {
+        if (activePresetNumber_ > 0 && activePresetNumber_ <= static_cast<int>(cameraPresets_.size())) {
+            return cameraPresets_[activePresetNumber_ - 1].description;
+        }
+        return "";
+    }
 };
 
 } // namespace core

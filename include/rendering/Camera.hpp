@@ -142,6 +142,31 @@ public:
      */
     float getFov() const { return fov_; }
 
+    /**
+     * @brief Set yaw angle (rotation around Y axis)
+     * @param yaw New yaw angle in degrees
+     */
+    void setYaw(float yaw);
+
+    /**
+     * @brief Set pitch angle (rotation around X axis)
+     * @param pitch New pitch angle in degrees
+     * @param constrain Constrain pitch to prevent flipping (default: true)
+     */
+    void setPitch(float pitch, bool constrain = true);
+
+    /**
+     * @brief Get yaw angle
+     * @return Current yaw in degrees
+     */
+    float getYaw() const { return yaw_; }
+
+    /**
+     * @brief Get pitch angle
+     * @return Current pitch in degrees
+     */
+    float getPitch() const { return pitch_; }
+
 private:
     // Camera attributes
     glm::vec3 position_;

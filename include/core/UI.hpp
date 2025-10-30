@@ -51,12 +51,16 @@ public:
      * @param renderer Renderer for parameter control
      * @param deltaTime Frame time
      * @param fps Frames per second
+     * @param activePresetNumber Active camera preset (0 = none, 1-9 = preset number)
+     * @param activePresetDescription Description of active preset
      */
     void render(rendering::Camera& camera,
                 physics::Metric* metric,
                 rendering::Renderer& renderer,
                 float deltaTime,
-                float fps);
+                float fps,
+                int activePresetNumber = 0,
+                const std::string& activePresetDescription = "");
 
     /**
      * @brief End frame and render ImGui
@@ -138,7 +142,9 @@ private:
     void renderStatsPanel(rendering::Camera& camera,
                          physics::Metric* metric,
                          float deltaTime,
-                         float fps);
+                         float fps,
+                         int activePresetNumber,
+                         const std::string& activePresetDescription);
 
     /**
      * @brief Render about panel
