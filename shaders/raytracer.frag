@@ -12,6 +12,10 @@ uniform vec3 uCameraUp;
 uniform vec3 uCameraRight;
 uniform float uFov;
 uniform float uAspect;
+uniform float uTime;
+uniform float uDeltaTime;
+uniform int uMetricType;
+uniform float uSpin;
 
 // Black hole uniforms
 uniform float uBlackHoleMass;
@@ -46,10 +50,15 @@ uniform float uScaleHeightRatio;   // H/r ratio at ISCO (typically 0.01-0.1)
 vec3 enhancedStarfield(vec3 dir) {
     vec3 d = normalize(dir);
     vec3 color = vec3(0.005, 0.005, 0.015); // Darker background for contrast
+    float rotation = uTime * 0.02;
+    float twinkle = (uTime + uDeltaTime) * 0.3;
+
+    float phiBase = atan(d.y, d.x) + rotation;
+    float thetaBase = acos(clamp(d.z, -1.0, 1.0));
 
     // LAYER 1: Very bright stars (giants)
-    vec2 p1 = vec2(atan(d.y, d.x), acos(d.z)) * 25.0;
-    float s1 = fract(sin(dot(p1, vec2(12.9898, 78.233))) * 43758.5453);
+    vec2 p1 = vec2(phiBase, thetaBase) * 25.0 + twinkle;
+    float s1 = fract(sin(dot(p1, vec2(12.9898, 78.233))) * 43758.5453 + uTime * 7.0);
     if (s1 > 0.9985) {
         float brightness = (s1 - 0.9985) / 0.0015;
         vec3 starColor = mix(vec3(1.0, 0.95, 0.85), vec3(0.85, 0.9, 1.0), fract(s1 * 10.0));
@@ -57,8 +66,8 @@ vec3 enhancedStarfield(vec3 dir) {
     }
 
     // LAYER 2: Bright stars
-    vec2 p2 = vec2(atan(d.y, d.x), acos(d.z)) * 60.0;
-    float s2 = fract(sin(dot(p2, vec2(15.234, 82.123))) * 43758.5453);
+    vec2 p2 = vec2(phiBase, thetaBase) * 60.0 + twinkle * 1.5;
+    float s2 = fract(sin(dot(p2, vec2(15.234, 82.123))) * 43758.5453 + uTime * 5.0);
     if (s2 > 0.997) {
         float brightness = (s2 - 0.997) / 0.003;
         vec3 starColor = mix(vec3(1.0, 1.0, 1.0), vec3(0.9, 0.95, 1.0), fract(s2 * 7.0));
@@ -66,36 +75,35 @@ vec3 enhancedStarfield(vec3 dir) {
     }
 
     // LAYER 3: Medium stars
-    vec2 p3 = vec2(atan(d.y, d.x), acos(d.z)) * 120.0;
-    float s3 = fract(sin(dot(p3, vec2(18.456, 85.789))) * 43758.5453);
+    vec2 p3 = vec2(phiBase, thetaBase) * 120.0 + twinkle * 2.0;
+    float s3 = fract(sin(dot(p3, vec2(18.456, 85.789))) * 43758.5453 + uTime * 3.0);
     if (s3 > 0.994) {
         float brightness = (s3 - 0.994) / 0.006;
         color += vec3(0.9, 0.9, 1.0) * brightness * 1.5;
     }
 
     // LAYER 4: Small stars (dust)
-    vec2 p4 = vec2(atan(d.y, d.x), acos(d.z)) * 200.0;
-    float s4 = fract(sin(dot(p4, vec2(21.789, 88.456))) * 43758.5453);
+    vec2 p4 = vec2(phiBase, thetaBase) * 200.0 + twinkle * 3.0;
+    float s4 = fract(sin(dot(p4, vec2(21.789, 88.456))) * 43758.5453 + uTime * 2.5);
     if (s4 > 0.992) {
         float brightness = (s4 - 0.992) / 0.008;
         color += vec3(0.7, 0.8, 0.9) * brightness * 0.8;
     }
 
     // LAYER 5: Micro stars (depth)
-    vec2 p5 = vec2(atan(d.y, d.x), acos(d.z)) * 350.0;
-    float s5 = fract(sin(dot(p5, vec2(24.123, 91.789))) * 43758.5453);
+    vec2 p5 = vec2(phiBase, thetaBase) * 350.0 + twinkle * 4.0;
+    float s5 = fract(sin(dot(p5, vec2(24.123, 91.789))) * 43758.5453 + uTime * 1.5);
     if (s5 > 0.9905) {
         color += vec3(0.5, 0.6, 0.7) * 0.3;
     }
 
     // Milky Way gradient (more pronounced)
-    float theta = acos(d.z);
-    float phi = atan(d.y, d.x);
-    float gradient = abs(sin(theta * 2.0)) * abs(cos(phi * 0.5));
+    float gradient = abs(sin(thetaBase * 2.0)) * abs(cos((phiBase - rotation) * 0.5));
     color += vec3(0.04, 0.05, 0.08) * gradient * 0.6;
 
     // Nebula-like wisps
-    float nebula = abs(sin(theta * 5.0 + phi * 3.0)) * abs(cos(theta * 3.0));
+    float nebula = abs(sin(thetaBase * 5.0 + (phiBase - rotation) * 3.0 + uTime * 0.5)) *
+                   abs(cos(thetaBase * 3.0));
     color += vec3(0.02, 0.03, 0.05) * nebula * 0.3;
 
     return color;
@@ -226,10 +234,206 @@ vec3 photonSphereGlow(float r, float closestApproach, vec3 baseColor) {
 }
 
 // ============================================================================
-// GEODESIC INTEGRATION: Accurate ray tracing using Christoffel symbols
+// GEODESIC INTEGRATION: Exact Schwarzschild solver (4-position & 4-momentum)
 // ============================================================================
 
-// Cartesian to spherical coordinates
+struct GeodesicState {
+    vec4 position; // (t, r, θ, φ)
+    vec4 momentum; // (dt/dλ, dr/dλ, dθ/dλ, dφ/dλ)
+    float energy;
+    float angularMomentum;
+};
+
+struct GeodesicDerivative {
+    vec4 dx;
+    vec4 dp;
+};
+
+struct MetricData {
+    mat4 g;
+    mat4 gInv;
+    mat4 dg_dr;
+    mat4 dg_dtheta;
+};
+
+float metricComponent(mat4 m, int row, int col) {
+    return m[col][row];
+}
+
+float clampRadius(float r) {
+    return max(r, uEventHorizon + 1e-5);
+}
+
+MetricData computeSchwarzschildMetric(float r, float theta) {
+    MetricData data;
+    float rSafe = clampRadius(r);
+    float rs = uEventHorizon;
+    float sinTheta = sin(theta);
+    float cosTheta = cos(theta);
+    float sin2 = max(sinTheta * sinTheta, 1e-6);
+
+    float f = 1.0 - rs / rSafe;
+    float invF = 1.0 / f;
+    float g_tt = -f;
+    float g_rr = invF;
+    float g_theta = rSafe * rSafe;
+    float g_phi = g_theta * sin2;
+
+    data.g = mat4(
+        vec4(g_tt, 0.0, 0.0, 0.0),
+        vec4(0.0, g_rr, 0.0, 0.0),
+        vec4(0.0, 0.0, g_theta, 0.0),
+        vec4(0.0, 0.0, 0.0, g_phi)
+    );
+
+    data.gInv = mat4(
+        vec4(-invF, 0.0, 0.0, 0.0),
+        vec4(0.0, f, 0.0, 0.0),
+        vec4(0.0, 0.0, 1.0 / g_theta, 0.0),
+        vec4(0.0, 0.0, 0.0, 1.0 / g_phi)
+    );
+
+    float df_dr = rs / (rSafe * rSafe);
+    float dg_tt_dr = df_dr;
+    float dg_rr_dr = df_dr / (f * f);
+    float dg_theta_dr = 2.0 * rSafe;
+    float dg_phi_dr = 2.0 * rSafe * sin2;
+    float dg_phi_dtheta = g_theta * sin(2.0 * theta);
+
+    data.dg_dr = mat4(
+        vec4(dg_tt_dr, 0.0, 0.0, 0.0),
+        vec4(0.0, dg_rr_dr, 0.0, 0.0),
+        vec4(0.0, 0.0, dg_theta_dr, 0.0),
+        vec4(0.0, 0.0, 0.0, dg_phi_dr)
+    );
+
+    data.dg_dtheta = mat4(
+        vec4(0.0, 0.0, 0.0, 0.0),
+        vec4(0.0, 0.0, 0.0, 0.0),
+        vec4(0.0, 0.0, 0.0, 0.0),
+        vec4(0.0, 0.0, 0.0, dg_phi_dtheta)
+    );
+
+    return data;
+}
+
+MetricData computeKerrMetric(float r, float theta) {
+    MetricData data;
+    float rSafe = clampRadius(r);
+    float M = uBlackHoleMass;
+    float aDimless = clamp(uSpin, -0.998, 0.998);
+    float a = aDimless * M;
+    float sinTheta = sin(theta);
+    float cosTheta = cos(theta);
+    float sin2 = max(sinTheta * sinTheta, 1e-6);
+    float cos2 = cosTheta * cosTheta;
+    float r2 = rSafe * rSafe;
+    float a2 = a * a;
+
+    float Sigma = r2 + a2 * cos2;
+    float Delta = r2 - 2.0 * M * rSafe + a2;
+    float A = (r2 + a2) * (r2 + a2) - a2 * Delta * sin2;
+
+    float DeltaSafe = max(Delta, 1e-6);
+
+    float g_tt = -(1.0 - (2.0 * M * rSafe) / Sigma);
+    float g_tphi = -(2.0 * M * rSafe * a * sin2) / Sigma;
+    float g_rr = Sigma / DeltaSafe;
+    float g_theta = Sigma;
+    float g_phi = (A * sin2) / Sigma;
+
+    data.g = mat4(
+        vec4(g_tt, 0.0, 0.0, g_tphi),
+        vec4(0.0, g_rr, 0.0, 0.0),
+        vec4(0.0, 0.0, g_theta, 0.0),
+        vec4(g_tphi, 0.0, 0.0, g_phi)
+    );
+
+    float invSigmaDelta = 1.0 / (Sigma * DeltaSafe);
+    float gInv_tt = -A * invSigmaDelta;
+    float gInv_tphi = -2.0 * M * rSafe * a * invSigmaDelta;
+    float gInv_rr = DeltaSafe / Sigma;
+    float gInv_theta = 1.0 / Sigma;
+    float gInv_phi = (Delta - a2 * sin2) / (Sigma * DeltaSafe * sin2);
+
+    data.gInv = mat4(
+        vec4(gInv_tt, 0.0, 0.0, gInv_tphi),
+        vec4(0.0, gInv_rr, 0.0, 0.0),
+        vec4(0.0, 0.0, gInv_theta, 0.0),
+        vec4(gInv_tphi, 0.0, 0.0, gInv_phi)
+    );
+
+    float Sigma2 = Sigma * Sigma;
+    float dSigma_dr = 2.0 * rSafe;
+    float dSigma_dtheta = -2.0 * a2 * sinTheta * cosTheta;
+    float dDelta_dr = 2.0 * rSafe - 2.0 * M;
+    float dA_dr = 4.0 * rSafe * (r2 + a2) - a2 * dDelta_dr * sin2;
+    float dA_dtheta = -2.0 * a2 * Delta * sinTheta * cosTheta;
+
+    float dgtt_dr = (2.0 * M / Sigma) - (2.0 * M * rSafe * dSigma_dr) / Sigma2;
+    float dgtt_dtheta = -(2.0 * M * rSafe * dSigma_dtheta) / Sigma2;
+
+    float numerator_r = rSafe * sin2;
+    float dNumerator_dr = sin2;
+    float dNumerator_dtheta = 2.0 * rSafe * sinTheta * cosTheta;
+
+    float dg_tphi_dr = -2.0 * M * a * (
+        (dNumerator_dr * Sigma - numerator_r * dSigma_dr) / Sigma2
+    );
+    float dg_tphi_dtheta = -2.0 * M * a * (
+        (dNumerator_dtheta * Sigma - numerator_r * dSigma_dtheta) / Sigma2
+    );
+
+    float dg_rr_dr = (dSigma_dr * DeltaSafe - Sigma * dDelta_dr) / (DeltaSafe * DeltaSafe);
+    float dg_rr_dtheta = dSigma_dtheta / DeltaSafe;
+
+    float dg_theta_dr = dSigma_dr;
+    float dg_theta_dtheta = dSigma_dtheta;
+
+    float dg_phi_dr = (dA_dr * sin2 * Sigma - A * sin2 * dSigma_dr) / Sigma2;
+    float dg_phi_dtheta = ((dA_dtheta * sin2 + A * 2.0 * sinTheta * cosTheta) * Sigma - A * sin2 * dSigma_dtheta) / Sigma2;
+
+    data.dg_dr = mat4(
+        vec4(dgtt_dr, 0.0, 0.0, dg_tphi_dr),
+        vec4(0.0, dg_rr_dr, 0.0, 0.0),
+        vec4(0.0, 0.0, dg_theta_dr, 0.0),
+        vec4(dg_tphi_dr, 0.0, 0.0, dg_phi_dr)
+    );
+
+    data.dg_dtheta = mat4(
+        vec4(dgtt_dtheta, 0.0, 0.0, dg_tphi_dtheta),
+        vec4(0.0, dg_rr_dtheta, 0.0, 0.0),
+        vec4(0.0, 0.0, dg_theta_dtheta, 0.0),
+        vec4(dg_tphi_dtheta, 0.0, 0.0, dg_phi_dtheta)
+    );
+
+    return data;
+}
+
+MetricData computeMetricData(float r, float theta) {
+    if (uMetricType == 1 && abs(uSpin) > 1e-6) {
+        return computeKerrMetric(r, theta);
+    }
+    return computeSchwarzschildMetric(r, theta);
+}
+
+float derivativeComponent(int coord, int row, int col, MetricData data) {
+    if (coord == 1) return metricComponent(data.dg_dr, row, col);
+    if (coord == 2) return metricComponent(data.dg_dtheta, row, col);
+    return 0.0;
+}
+
+float christoffel(int mu, int alpha, int beta, MetricData data) {
+    float sum = 0.0;
+    for (int nu = 0; nu < 4; ++nu) {
+        float term = derivativeComponent(alpha, beta, nu, data) +
+                     derivativeComponent(beta, alpha, nu, data) -
+                     derivativeComponent(nu, alpha, beta, data);
+        sum += metricComponent(data.gInv, mu, nu) * term;
+    }
+    return 0.5 * sum;
+}
+
 vec3 cartesianToSpherical(vec3 pos) {
     float r = length(pos);
     float theta = acos(clamp(pos.z / max(r, EPSILON), -1.0, 1.0));
@@ -237,7 +441,6 @@ vec3 cartesianToSpherical(vec3 pos) {
     return vec3(r, theta, phi);
 }
 
-// Spherical to Cartesian coordinates
 vec3 sphericalToCartesian(vec3 spherical) {
     float r = spherical.x;
     float theta = spherical.y;
@@ -249,141 +452,197 @@ vec3 sphericalToCartesian(vec3 spherical) {
     );
 }
 
-// Christoffel symbols for Schwarzschild metric
-struct ChristoffelSymbols {
-    float gamma_r_rr;
-    float gamma_r_theta_theta;
-    float gamma_r_phi_phi;
-    float gamma_theta_r_theta;
-    float gamma_theta_phi_phi;
-    float gamma_phi_r_phi;
-    float gamma_phi_theta_phi;
-};
+void sphericalBasis(float theta, float phi, out vec3 e_r, out vec3 e_theta, out vec3 e_phi) {
+    float sinTheta = sin(theta);
+    float cosTheta = cos(theta);
+    float sinPhi = sin(phi);
+    float cosPhi = cos(phi);
 
-ChristoffelSymbols computeChristoffel(float r, float theta, float rs) {
-    ChristoffelSymbols gamma;
-
-    // Avoid singularities near event horizon
-    if (r <= rs * 1.001) {
-        gamma.gamma_r_rr = 0.0;
-        gamma.gamma_r_theta_theta = 0.0;
-        gamma.gamma_r_phi_phi = 0.0;
-        gamma.gamma_theta_r_theta = 0.0;
-        gamma.gamma_theta_phi_phi = 0.0;
-        gamma.gamma_phi_r_phi = 0.0;
-        gamma.gamma_phi_theta_phi = 0.0;
-        return gamma;
-    }
-
-    float r2 = r * r;
-    float sin_theta = sin(theta);
-    float cos_theta = cos(theta);
-    float sin2_theta = sin_theta * sin_theta;
-
-    // Γ^r_rr = rs / (2r(r - rs))
-    gamma.gamma_r_rr = rs / (2.0 * r * (r - rs));
-
-    // Γ^r_θθ = -(r - rs)
-    gamma.gamma_r_theta_theta = -(r - rs);
-
-    // Γ^r_φφ = -(r - rs) * sin²θ
-    gamma.gamma_r_phi_phi = -(r - rs) * sin2_theta;
-
-    // Γ^θ_rθ = 1/r
-    gamma.gamma_theta_r_theta = 1.0 / r;
-
-    // Γ^θ_φφ = -sinθ * cosθ
-    gamma.gamma_theta_phi_phi = -sin_theta * cos_theta;
-
-    // Γ^φ_rφ = 1/r
-    gamma.gamma_phi_r_phi = 1.0 / r;
-
-    // Γ^φ_θφ = cotθ = cosθ/sinθ
-    if (abs(sin_theta) > EPSILON) {
-        gamma.gamma_phi_theta_phi = cos_theta / sin_theta;
-    } else {
-        gamma.gamma_phi_theta_phi = 0.0;
-    }
-
-    return gamma;
+    e_r = vec3(sinTheta * cosPhi, sinTheta * sinPhi, cosTheta);
+    e_theta = vec3(cosTheta * cosPhi, cosTheta * sinPhi, -sinTheta);
+    e_phi = vec3(-sinPhi, cosPhi, 0.0);
 }
 
-// Compute geodesic acceleration: d²x^μ/dλ² = -Γ^μ_αβ (dx^α/dλ)(dx^β/dλ)
-vec3 geodesicAcceleration(vec3 pos_spherical, vec3 vel_spherical, float rs) {
-    float r = pos_spherical.x;
-    float theta = pos_spherical.y;
 
-    float dr = vel_spherical.x;
-    float dtheta = vel_spherical.y;
-    float dphi = vel_spherical.z;
 
-    ChristoffelSymbols gamma = computeChristoffel(r, theta, rs);
+GeodesicDerivative computeDerivative(GeodesicState state) {
+    MetricData data = computeMetricData(state.position.y, state.position.z);
 
-    // d²r/dλ²
-    float d2r = -gamma.gamma_r_rr * dr * dr
-                -gamma.gamma_r_theta_theta * dtheta * dtheta
-                -gamma.gamma_r_phi_phi * dphi * dphi;
+    GeodesicDerivative deriv;
+    deriv.dx = state.momentum;
+    deriv.dp = vec4(0.0);
 
-    // d²θ/dλ²
-    float d2theta = -2.0 * gamma.gamma_theta_r_theta * dr * dtheta
-                    -gamma.gamma_theta_phi_phi * dphi * dphi;
+    for (int mu = 0; mu < 4; ++mu) {
+        float sum = 0.0;
+        for (int alpha = 0; alpha < 4; ++alpha) {
+            for (int beta = 0; beta < 4; ++beta) {
+                sum += christoffel(mu, alpha, beta, data) *
+                        state.momentum[alpha] * state.momentum[beta];
+            }
+        }
+        deriv.dp[mu] = -sum;
+    }
 
-    // d²φ/dλ²
-    float d2phi = -2.0 * gamma.gamma_phi_r_phi * dr * dphi
-                  -2.0 * gamma.gamma_phi_theta_phi * dtheta * dphi;
-
-    return vec3(d2r, d2theta, d2phi);
+    return deriv;
 }
 
-// Single RK4 step for geodesic integration
-void rk4GeodesicStep(inout vec3 pos_spherical, inout vec3 vel_spherical, float h, float rs) {
-    // k1 = f(y)
-    vec3 k1_vel = vel_spherical;
-    vec3 k1_acc = geodesicAcceleration(pos_spherical, vel_spherical, rs);
+void rk4Step(inout GeodesicState state, float h) {
+    GeodesicDerivative k1 = computeDerivative(state);
 
-    // k2 = f(y + k1*h/2)
-    vec3 pos2 = pos_spherical + k1_vel * (h / 2.0);
-    vec3 vel2 = vel_spherical + k1_acc * (h / 2.0);
-    vec3 k2_vel = vel2;
-    vec3 k2_acc = geodesicAcceleration(pos2, vel2, rs);
+    GeodesicState temp;
+    temp.position = state.position + k1.dx * (h * 0.5);
+    temp.momentum = state.momentum + k1.dp * (h * 0.5);
+    GeodesicDerivative k2 = computeDerivative(temp);
 
-    // k3 = f(y + k2*h/2)
-    vec3 pos3 = pos_spherical + k2_vel * (h / 2.0);
-    vec3 vel3 = vel_spherical + k2_acc * (h / 2.0);
-    vec3 k3_vel = vel3;
-    vec3 k3_acc = geodesicAcceleration(pos3, vel3, rs);
+    temp.position = state.position + k2.dx * (h * 0.5);
+    temp.momentum = state.momentum + k2.dp * (h * 0.5);
+    GeodesicDerivative k3 = computeDerivative(temp);
 
-    // k4 = f(y + k3*h)
-    vec3 pos4 = pos_spherical + k3_vel * h;
-    vec3 vel4 = vel_spherical + k3_acc * h;
-    vec3 k4_vel = vel4;
-    vec3 k4_acc = geodesicAcceleration(pos4, vel4, rs);
+    temp.position = state.position + k3.dx * h;
+    temp.momentum = state.momentum + k3.dp * h;
+    GeodesicDerivative k4 = computeDerivative(temp);
 
-    // Update: y_next = y + (k1 + 2*k2 + 2*k3 + k4) * h/6
-    pos_spherical += (k1_vel + 2.0 * k2_vel + 2.0 * k3_vel + k4_vel) * (h / 6.0);
-    vel_spherical += (k1_acc + 2.0 * k2_acc + 2.0 * k3_acc + k4_acc) * (h / 6.0);
+    state.position += (k1.dx + 2.0 * k2.dx + 2.0 * k3.dx + k4.dx) * (h / 6.0);
+    state.momentum += (k1.dp + 2.0 * k2.dp + 2.0 * k3.dp + k4.dp) * (h / 6.0);
+}
 
-    // Normalize theta to [0, π]
-    if (pos_spherical.y < 0.0) {
-        pos_spherical.y = -pos_spherical.y;
-        pos_spherical.z += PI;
+float computeNullConstraint(GeodesicState state) {
+    MetricData data = computeMetricData(state.position.y, state.position.z);
+    float constraint = 0.0;
+    for (int alpha = 0; alpha < 4; ++alpha) {
+        for (int beta = 0; beta < 4; ++beta) {
+            constraint += metricComponent(data.g, alpha, beta) *
+                         state.momentum[alpha] * state.momentum[beta];
+        }
     }
-    if (pos_spherical.y > PI) {
-        pos_spherical.y = 2.0 * PI - pos_spherical.y;
-        pos_spherical.z += PI;
+    return constraint;
+}
+
+float computeEnergyInvariant(GeodesicState state) {
+    MetricData data = computeMetricData(state.position.y, state.position.z);
+    float energy = 0.0;
+    for (int mu = 0; mu < 4; ++mu) {
+        energy += metricComponent(data.g, 0, mu) * state.momentum[mu];
+    }
+    return -energy;
+}
+
+float computeAngularMomentumInvariant(GeodesicState state) {
+    MetricData data = computeMetricData(state.position.y, state.position.z);
+    float ang = 0.0;
+    for (int mu = 0; mu < 4; ++mu) {
+        ang += metricComponent(data.g, 3, mu) * state.momentum[mu];
+    }
+    return ang;
+}
+
+float solveTimeComponent(vec4 momentum, MetricData data) {
+    float g_tt = metricComponent(data.g, 0, 0);
+    float g_tphi = metricComponent(data.g, 0, 3);
+    float g_rr = metricComponent(data.g, 1, 1);
+    float g_theta = metricComponent(data.g, 2, 2);
+    float g_phi = metricComponent(data.g, 3, 3);
+
+    float A = g_tt;
+    float B = 2.0 * g_tphi * momentum.w;
+    float C = g_rr * momentum.y * momentum.y +
+              g_theta * momentum.z * momentum.z +
+              g_phi * momentum.w * momentum.w;
+
+    float disc = max(B * B - 4.0 * A * C, 0.0);
+    float sqrtDisc = sqrt(disc);
+    float denom = 2.0 * A;
+    if (abs(denom) < 1e-6) {
+        denom = (denom >= 0.0 ? 1e-6 : -1e-6);
     }
 
-    // Normalize phi to [0, 2π)
-    pos_spherical.z = mod(pos_spherical.z, TWO_PI);
-    if (pos_spherical.z < 0.0) {
-        pos_spherical.z += TWO_PI;
+    float pt1 = (-B + sqrtDisc) / denom;
+    float pt2 = (-B - sqrtDisc) / denom;
+
+    float energy1 = -(g_tt * pt1 + g_tphi * momentum.w);
+    float energy2 = -(g_tt * pt2 + g_tphi * momentum.w);
+
+    return (energy1 > energy2) ? pt1 : pt2;
+}
+
+void enforceConservedQuantities(inout GeodesicState state, float energy, float angularMomentum) {
+    MetricData data = computeMetricData(state.position.y, state.position.z);
+    float g_tt = metricComponent(data.g, 0, 0);
+    float g_tphi = metricComponent(data.g, 0, 3);
+    float g_rr = metricComponent(data.g, 1, 1);
+    float g_theta = metricComponent(data.g, 2, 2);
+    float g_phi = metricComponent(data.g, 3, 3);
+
+    float det = g_tt * g_phi - g_tphi * g_tphi;
+    if (abs(det) < 1e-8) {
+        return;
     }
+
+    float pt = (-energy * g_phi - g_tphi * angularMomentum) / det;
+    float pphi = (angularMomentum * g_tt + g_tphi * energy) / det;
+
+    state.momentum.x = pt;
+    state.momentum.w = pphi;
+
+    float spatial = g_rr * state.momentum.y * state.momentum.y +
+                    g_theta * state.momentum.z * state.momentum.z;
+    float temporal = g_tt * pt * pt + 2.0 * g_tphi * pt * pphi + g_phi * pphi * pphi;
+    float target = -temporal;
+
+    if (spatial > 1e-8 && target > 0.0) {
+        float scale = sqrt(target / spatial);
+        state.momentum.y *= scale;
+        state.momentum.z *= scale;
+    }
+}
+
+void normalizeSpherical(inout GeodesicState state) {
+    if (state.position.z < 0.0) {
+        state.position.z = -state.position.z;
+        state.position.w += PI;
+        state.momentum.z = -state.momentum.z;
+    }
+    if (state.position.z > PI) {
+        state.position.z = TWO_PI - state.position.z;
+        state.position.w += PI;
+        state.momentum.z = -state.momentum.z;
+    }
+    state.position.w = mod(state.position.w, TWO_PI);
+    if (state.position.w < 0.0) {
+        state.position.w += TWO_PI;
+    }
+}
+
+vec3 spatialDirection(GeodesicState state) {
+    float r = max(state.position.y, uEventHorizon + 1e-5);
+    float theta = state.position.z;
+    float phi = state.position.w;
+
+    vec3 e_r;
+    vec3 e_theta;
+    vec3 e_phi;
+    sphericalBasis(theta, phi, e_r, e_theta, e_phi);
+
+    vec3 velocity =
+        state.momentum.y * e_r +
+        r * state.momentum.z * e_theta +
+        r * max(sin(theta), 1e-6) * state.momentum.w * e_phi;
+
+    if (length(velocity) > 0.0) {
+        return normalize(velocity);
+    }
+    return e_r;
 }
 
 // ============================================================================
 
 // PHYSICS: Physically accurate accretion disk with Shakura-Sunyaev model
-vec3 accretionDisk(vec3 pos, vec3 rayDir, float r, float theta) {
+vec3 accretionDisk(vec3 pos,
+                   vec3 rayDir,
+                   float r,
+                   float theta,
+                   float coordinateTime,
+                   float globalTime) {
     if (!uAccretionDiskEnabled) return vec3(0.0);
 
     float M = uBlackHoleMass;
@@ -438,17 +697,16 @@ vec3 accretionDisk(vec3 pos, vec3 rayDir, float r, float theta) {
     vec3 color = temperatureToRGB(T_obs);
 
     // ===== RELATIVISTIC DOPPLER SHIFT & BEAMING =====
-    // Azimuthal position in disk
-    float phi = atan(pos.y, pos.x);
+    float emissionTime = max(globalTime - coordinateTime, 0.0);
+    float phi0 = atan(pos.y, pos.x);
+    float omega = sqrt(M / (r * r * r)); // Keplerian angular velocity
+    float phiFlow = phi0 + omega * emissionTime;
 
-    // Keplerian orbital velocity: v = sqrt(GM/r) (in units of c)
     float v_orbital = sqrt(M / r);
     float beta = v_orbital;
-    float gamma = 1.0 / sqrt(1.0 - beta * beta);
+    float gamma = 1.0 / sqrt(max(1.0 - beta * beta, 0.0001));
 
-    // Velocity direction: purely azimuthal (φ direction)
-    // Component toward observer depends on viewing geometry
-    vec3 velocity_dir = vec3(-sin(phi), cos(phi), 0.0);
+    vec3 velocity_dir = vec3(-sin(phiFlow), cos(phiFlow), 0.0);
     float cosTheta_obs = dot(normalize(velocity_dir), normalize(rayDir));
 
     // Doppler factor: D = 1 / [γ(1 - β·cosθ)]
@@ -487,9 +745,10 @@ vec3 accretionDisk(vec3 pos, vec3 rayDir, float r, float theta) {
     brightness *= radialProfile;
 
     // Turbulence: small-scale variations from MHD turbulence
-    float turbulence = fract(sin(dot(pos.xy * 15.0, vec2(12.9898, 78.233))) * 43758.5453);
+    float turbulence = fract(sin(dot(pos.xy * 15.0, vec2(12.9898, 78.233)) + globalTime * 2.0 + uDeltaTime * 5.0) * 43758.5453);
     turbulence = turbulence * 0.3 + 0.85;
-    brightness *= turbulence;
+    float shear = sin(phiFlow * 6.0 + emissionTime * 0.5 + uDeltaTime * 30.0);
+    brightness *= turbulence * (1.0 + 0.15 * shear);
 
     // ===== FINAL INTENSITY =====
     // Intensity = emissivity × brightness × color
@@ -503,120 +762,117 @@ vec3 accretionDisk(vec3 pos, vec3 rayDir, float r, float theta) {
     return color * intensity * alpha_step;
 }
 
-// ACCURATE GEODESIC RAY TRACING with RK4 integration
 vec3 traceRay(vec3 origin, vec3 dir) {
-    // Convert initial position to spherical coordinates
-    vec3 pos_spherical = cartesianToSpherical(origin);
-    vec3 pos_cartesian = origin;
+    vec3 spherical = cartesianToSpherical(origin);
 
-    // Initialize velocity in spherical coordinates
-    // For light rays, we need to convert Cartesian direction to spherical velocity
+    float r = spherical.x;
+    float theta = clamp(spherical.y, 1e-6, PI - 1e-6);
+    float phi = spherical.z;
+
+    float rSafe = max(r, uEventHorizon + 1e-4);
+
+    GeodesicState state;
+    state.position = vec4(0.0, rSafe, theta, phi);
+
+    vec3 e_r;
+    vec3 e_theta;
+    vec3 e_phi;
+    sphericalBasis(theta, phi, e_r, e_theta, e_phi);
+
     vec3 rayDir = normalize(dir);
 
-    // Compute spherical velocity components from Cartesian direction
-    // This is approximate but works for ray tracing from camera
-    float r = pos_spherical.x;
-    float theta = pos_spherical.y;
-    float phi = pos_spherical.z;
+    float dir_r = dot(rayDir, e_r);
+    float dir_theta = dot(rayDir, e_theta);
+    float dir_phi = dot(rayDir, e_phi);
 
-    // Spherical basis vectors (not normalized, for correct velocity components)
-    vec3 e_r = normalize(pos_cartesian);
-    vec3 e_theta = normalize(vec3(
-        cos(theta) * cos(phi),
-        cos(theta) * sin(phi),
-        -sin(theta)
-    ));
-    vec3 e_phi = normalize(vec3(-sin(phi), cos(phi), 0.0));
+    float sinTheta = max(sin(theta), 1e-6);
+    float pr = dir_r;
+    float ptheta = dir_theta / rSafe;
+    float pphi = dir_phi / (rSafe * sinTheta);
+    MetricData metricInit = computeMetricData(rSafe, theta);
+    vec4 initialMomentum = vec4(0.0, pr, ptheta, pphi);
+    float pt = solveTimeComponent(initialMomentum, metricInit);
 
-    // Project ray direction onto spherical basis
-    float dr = dot(rayDir, e_r);
-    float dtheta = dot(rayDir, e_theta) / max(r, EPSILON);
-    float dphi = dot(rayDir, e_phi) / max(r * sin(theta), EPSILON);
+    state.momentum = vec4(pt, pr, ptheta, pphi);
+    state.energy = computeEnergyInvariant(state);
+    state.angularMomentum = computeAngularMomentumInvariant(state);
+    enforceConservedQuantities(state, state.energy, state.angularMomentum);
+    state.energy = computeEnergyInvariant(state);
+    state.angularMomentum = computeAngularMomentumInvariant(state);
 
-    vec3 vel_spherical = vec3(dr, dtheta, dphi);
+    float conservedEnergy = state.energy;
+    float conservedAngularMomentum = state.angularMomentum;
 
-    float rs = uEventHorizon;
-    float closestApproach = 1000.0;
+    float closestApproach = state.position.y;
     vec3 accumulatedDisk = vec3(0.0);
     float diskAlpha = 0.0;
 
-    // Adaptive step size based on distance from black hole
     float baseStepSize = uStepSize;
 
-    for (int i = 0; i < uMaxSteps; i++) {
-        float r_current = pos_spherical.x;
-        closestApproach = min(closestApproach, r_current);
+    for (int i = 0; i < uMaxSteps; ++i) {
+        float rCurrent = state.position.y;
+        closestApproach = min(closestApproach, rCurrent);
 
-        // Hit event horizon
-        if (r_current < rs) {
+        if (rCurrent <= uEventHorizon) {
             return vec3(0.0);
         }
 
-        // Escaped to infinity
-        if (r_current > ESCAPE_RADIUS) {
-            vec3 skyColor = enhancedStarfield(rayDir);
+        if (isnan(rCurrent) || isinf(rCurrent)) {
+            break;
+        }
+
+        if (rCurrent >= ESCAPE_RADIUS) {
+            vec3 skyDir = spatialDirection(state);
+            vec3 skyColor = enhancedStarfield(skyDir);
             vec3 finalColor = mix(skyColor, accumulatedDisk, diskAlpha);
-            finalColor = photonSphereGlow(r_current, closestApproach, finalColor);
+            finalColor = photonSphereGlow(rCurrent, closestApproach, finalColor);
             return finalColor;
         }
 
-        // Adaptive step size: smaller steps near strong gravity
         float h = baseStepSize;
-        if (r_current < uPhotonSphere * 2.0) {
-            // Close to photon sphere: use smaller steps for accuracy
+        if (rCurrent < uPhotonSphere * 2.0) {
             h = baseStepSize * 0.5;
         }
-        if (r_current < rs * 1.5) {
-            // Very close to event horizon: use even smaller steps
+        if (rCurrent < uEventHorizon * 1.5) {
             h = baseStepSize * 0.25;
         }
 
-        // Reconstruct Cartesian position for disk sampling and direction updates
-        pos_cartesian = sphericalToCartesian(pos_spherical);
+        rk4Step(state, h);
+        normalizeSpherical(state);
+        enforceConservedQuantities(state, conservedEnergy, conservedAngularMomentum);
+        state.energy = conservedEnergy;
+        state.angularMomentum = conservedAngularMomentum;
 
-        // Update ray direction for disk sampling (approximate from velocity)
-        vec3 vel_cartesian = sphericalToCartesian(pos_spherical + vel_spherical * 0.1) - pos_cartesian;
-        rayDir = normalize(vel_cartesian);
+        if (abs(computeNullConstraint(state)) > 1e-4) {
+            break;
+        }
 
-        // Check for accretion disk intersection
+        vec3 posCartesian = sphericalToCartesian(vec3(state.position.y, state.position.z, state.position.w));
+        vec3 raySpatialDir = spatialDirection(state);
+
         if (uAccretionDiskEnabled) {
-            float theta_disk = pos_spherical.y;
-            vec3 diskColor = accretionDisk(pos_cartesian, rayDir, r_current, theta_disk);
+            vec3 diskColor = accretionDisk(posCartesian,
+                                           raySpatialDir,
+                                           state.position.y,
+                                           state.position.z,
+                                           state.position.x,
+                                           uTime);
 
-            // Standard front-to-back alpha compositing (Porter-Duff over operator)
-            // C_out = C_src + C_dst × (1 - α_src)
-            // α_out = α_src + α_dst × (1 - α_src)
             if (length(diskColor) > 0.0) {
-                // Extract alpha from disk color intensity (pre-multiplied alpha)
                 float diskAlphaStep = min(length(diskColor) * 0.5, 1.0);
-
-                // Accumulate color (front-to-back compositing)
                 accumulatedDisk += diskColor * (1.0 - diskAlpha);
-
-                // Accumulate opacity (standard alpha blending)
                 diskAlpha += diskAlphaStep * (1.0 - diskAlpha);
-
-                // Early ray termination: if disk becomes fully opaque, stop tracing
                 if (diskAlpha > 0.99) {
                     return accumulatedDisk;
                 }
             }
         }
-
-        // ACCURATE GEODESIC INTEGRATION using RK4
-        // Solves: d²x^μ/dλ² + Γ^μ_αβ (dx^α/dλ)(dx^β/dλ) = 0
-        // where Γ^μ_αβ are the Christoffel symbols of the Schwarzschild metric
-        rk4GeodesicStep(pos_spherical, vel_spherical, h, rs);
-
-        // Safety check: ensure coordinates remain valid
-        if (pos_spherical.x < 0.0 || isnan(pos_spherical.x) || isinf(pos_spherical.x)) {
-            break;
-        }
     }
 
-    // Max iterations reached
-    vec3 result = mix(vec3(0.02, 0.0, 0.0), accumulatedDisk, diskAlpha);
-    return photonSphereGlow(pos_spherical.x, closestApproach, result);
+    vec3 fallbackDir = spatialDirection(state);
+    vec3 fallbackSky = enhancedStarfield(fallbackDir);
+    vec3 fallback = mix(fallbackSky, accumulatedDisk, diskAlpha);
+    return photonSphereGlow(state.position.y, closestApproach, fallback);
 }
 
 void main() {

@@ -22,7 +22,7 @@ Camera::Camera(const glm::vec3& position, float fov, float aspect,
     updateCameraVectors();
 }
 
-void Camera::update(float deltaTime) {
+void Camera::update(float /*deltaTime*/) {
     // Nothing to do here for now
     // Could add smooth interpolation or other updates
 }

@@ -109,9 +109,33 @@ public:
     bool blackHoleMassChanged() const { return blackHoleMassChanged_; }
 
     /**
+     * @brief Get selected metric type (0 = Schwarzschild, 1 = Kerr)
+     */
+    int getMetricType() const { return metricType_; }
+
+    /**
+     * @brief Check if metric type changed this frame
+     */
+    bool metricTypeChanged() const { return metricTypeChanged_; }
+
+    /**
+     * @brief Get spin parameter a/M
+     */
+    float getSpin() const { return spin_; }
+
+    /**
+     * @brief Check if spin changed this frame
+     */
+    bool spinChanged() const { return spinChanged_; }
+
+    /**
      * @brief Reset changed flags
      */
-    void resetChangeFlags() { blackHoleMassChanged_ = false; }
+    void resetChangeFlags() {
+        blackHoleMassChanged_ = false;
+        metricTypeChanged_ = false;
+        spinChanged_ = false;
+    }
 
 private:
     GLFWwindow* window_;
@@ -120,6 +144,10 @@ private:
     // UI state
     float blackHoleMass_;
     bool blackHoleMassChanged_;
+    int metricType_;
+    bool metricTypeChanged_;
+    float spin_;
+    bool spinChanged_;
 
     int maxRaySteps_;
     float stepSize_;

@@ -65,6 +65,13 @@ public:
         const Eigen::Vector3d& pos,
         const Eigen::Vector3d& vel) const override;
 
+    MetricTensor metricTensor(const FourVector& position) const override;
+
+    MetricTensor inverseMetricTensor(const FourVector& position) const override;
+
+    void christoffelSymbols(const FourVector& position,
+                            ChristoffelTensor& outGamma) const override;
+
     /**
      * @brief Get spin parameter
      * @return a/M (dimensionless, 0 to 0.998)

@@ -42,7 +42,16 @@ public:
      * @param camera Camera for view parameters
      * @param metric Black hole metric for physics
      */
-    void render(const Camera& camera, const physics::Metric* metric);
+    void render(const Camera& camera,
+                const physics::Metric* metric,
+                float simulationTime,
+                float deltaTime);
+
+    void setMetricType(int type) { metricType_ = type; }
+    int getMetricType() const { return metricType_; }
+
+    void setSpin(float spin) { spin_ = spin; }
+    float getSpin() const { return spin_; }
 
     /**
      * @brief Set render resolution
@@ -177,6 +186,8 @@ private:
     float alphaViscosity_;     // Shakura-Sunyaev alpha (0.01-0.1)
     float diskInclination_;    // Viewing angle in radians
     float scaleHeightRatio_;   // H/r ratio at ISCO
+    int metricType_;
+    float spin_;
 
     /**
      * @brief Setup fullscreen quad for ray tracing

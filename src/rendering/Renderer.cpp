@@ -17,7 +17,9 @@ Renderer::Renderer(int width, int height)
       accretionRate_(0.1f),        // Moderate accretion rate
       alphaViscosity_(0.1f),       // Standard Shakura-Sunyaev alpha
       diskInclination_(1.0f),      // ~60 degrees viewing angle
-      scaleHeightRatio_(0.05f) {   // Thin disk: H/r ~ 0.05
+      scaleHeightRatio_(0.05f),    // Thin disk: H/r ~ 0.05
+      metricType_(0),
+      spin_(0.0f) {
 }
 
 Renderer::~Renderer() {
@@ -45,7 +47,10 @@ bool Renderer::initialize() {
     return true;
 }
 
-void Renderer::render(const Camera& camera, const physics::Metric* metric) {
+void Renderer::render(const Camera& camera,
+                      const physics::Metric* metric,
+                      float simulationTime,
+                      float deltaTime) {
     if (!metric) {
         std::cerr << "ERROR::RENDERER::NULL_METRIC\n";
         return;
@@ -64,6 +69,10 @@ void Renderer::render(const Camera& camera, const physics::Metric* metric) {
     rayTracerShader_.setVec3("uCameraRight", camera.getRight());
     rayTracerShader_.setFloat("uFov", camera.getFov());
     rayTracerShader_.setFloat("uAspect", static_cast<float>(width_) / static_cast<float>(height_));
+    rayTracerShader_.setFloat("uTime", simulationTime);
+    rayTracerShader_.setFloat("uDeltaTime", deltaTime);
+    rayTracerShader_.setInt("uMetricType", metricType_);
+    rayTracerShader_.setFloat("uSpin", spin_);
 
     // Black hole parameters
     rayTracerShader_.setFloat("uBlackHoleMass", static_cast<float>(metric->getMass()));

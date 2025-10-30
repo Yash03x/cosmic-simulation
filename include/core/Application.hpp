@@ -66,6 +66,7 @@ private:
     TimePoint lastFrameTime_;
     float deltaTime_;
     float fps_;
+    float simulationTime_;
 
     // Input state
     bool firstMouse_;

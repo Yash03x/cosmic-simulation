@@ -1,5 +1,6 @@
 #include "core/Application.hpp"
 #include <GLFW/glfw3.h>
+#include "physics/Kerr.hpp"
 #include <iostream>
 #include <iomanip>
 
@@ -9,6 +10,7 @@ namespace core {
 Application::Application(int width, int height, const std::string& title)
     : deltaTime_(0.0f),
       fps_(0.0f),
+      simulationTime_(0.0f),
       firstMouse_(true),
       lastMouseX_(width / 2.0),
       lastMouseY_(height / 2.0),
@@ -100,17 +102,39 @@ void Application::shutdown() {
 void Application::update(float deltaTime) {
     camera_->update(deltaTime);
 
-    // Check if black hole mass was changed in UI
-    if (ui_->blackHoleMassChanged()) {
-        blackHole_ = std::make_unique<physics::Schwarzschild>(ui_->getBlackHoleMass());
-        std::cout << "Black hole mass changed to " << ui_->getBlackHoleMass() << " M☉\n";
+    const bool massChanged = ui_->blackHoleMassChanged();
+    const bool metricTypeChanged = ui_->metricTypeChanged();
+    const bool spinChanged = ui_->spinChanged();
+
+    renderer_->setMetricType(ui_->getMetricType());
+    if (ui_->getMetricType() == 0) {
+        renderer_->setSpin(0.0f);
+    } else {
+        renderer_->setSpin(ui_->getSpin());
     }
+
+    if (massChanged || metricTypeChanged || spinChanged) {
+        const float mass = ui_->getBlackHoleMass();
+        const int metricType = ui_->getMetricType();
+
+        if (metricType == 0) {
+            blackHole_ = std::make_unique<physics::Schwarzschild>(mass);
+            renderer_->setSpin(0.0f);
+            std::cout << "Switched to Schwarzschild metric (M=" << mass << ")\n";
+        } else {
+            const float spin = ui_->getSpin();
+            blackHole_ = std::make_unique<physics::Kerr>(mass, spin);
+            std::cout << "Switched to Kerr metric (M=" << mass
+                      << ", a/M=" << spin << ")\n";
+        }
+    }
+
     ui_->resetChangeFlags();
 }
 
 void Application::render() {
     // Render scene
-    renderer_->render(*camera_, blackHole_.get());
+    renderer_->render(*camera_, blackHole_.get(), simulationTime_, deltaTime_);
 
     // Render UI on top
     ui_->newFrame();
@@ -143,8 +167,8 @@ void Application::processInput(float deltaTime) {
     }
 
     // Toggle cursor capture with TAB (only if UI is not capturing mouse)
+    static bool tabWasPressed = false;
     if (window_->isKeyPressed(GLFW_KEY_TAB) && !ui_->wantsCaptureMouse()) {
-        static bool tabWasPressed = false;
         if (!tabWasPressed) {
             cursorCaptured_ = !cursorCaptured_;
             window_->setCursorVisible(!cursorCaptured_);
@@ -152,7 +176,6 @@ void Application::processInput(float deltaTime) {
             tabWasPressed = true;
         }
     } else {
-        static bool tabWasPressed = false;
         tabWasPressed = false;
     }
 
@@ -240,6 +263,7 @@ void Application::updateTiming() {
         currentTime - lastFrameTime_);
     deltaTime_ = duration.count() / 1000000.0f;  // Convert to seconds
     fps_ = 1.0f / deltaTime_;
+    simulationTime_ += deltaTime_;
     lastFrameTime_ = currentTime;
 }
 

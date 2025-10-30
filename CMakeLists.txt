@@ -42,6 +42,17 @@ target_include_directories(imgui PUBLIC
 )
 target_link_libraries(imgui PUBLIC glfw glad)
 
+# Core physics library (Schwarzschild metric and geodesic integration)
+add_library(cosmic_physics STATIC
+    src/physics/Schwarzschild.cpp
+    src/physics/Kerr.cpp
+    src/physics/Geodesic.cpp
+)
+target_include_directories(cosmic_physics PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+target_link_libraries(cosmic_physics PUBLIC Eigen3::Eigen)
+
 # Source files
 set(SOURCES
     src/main.cpp
@@ -51,8 +62,6 @@ set(SOURCES
     src/rendering/Camera.cpp
     src/rendering/Shader.cpp
     src/rendering/Renderer.cpp
-    src/physics/Schwarzschild.cpp
-    src/physics/Geodesic.cpp
 )
 
 # Header files
@@ -85,6 +94,7 @@ target_link_libraries(CosmicSimulator PRIVATE
     glm::glm
     stb_image
     imgui
+    cosmic_physics
 )
 
 # macOS-specific frameworks
@@ -113,3 +123,14 @@ if(MSVC)
 else()
     target_compile_options(CosmicSimulator PRIVATE -Wall -Wextra -Wpedantic)
 endif()
+
+enable_testing()
+
+add_executable(GeodesicValidation
+    tests/GeodesicValidation.cpp
+)
+target_link_libraries(GeodesicValidation PRIVATE
+    cosmic_physics
+    Eigen3::Eigen
+)
+add_test(NAME geodesic_validation COMMAND GeodesicValidation)

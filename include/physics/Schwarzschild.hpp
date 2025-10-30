@@ -52,6 +52,13 @@ public:
         const Eigen::Vector3d& pos,
         const Eigen::Vector3d& vel) const override;
 
+    MetricTensor metricTensor(const FourVector& position) const override;
+
+    MetricTensor inverseMetricTensor(const FourVector& position) const override;
+
+    void christoffelSymbols(const FourVector& position,
+                            ChristoffelTensor& outGamma) const override;
+
     /**
      * @brief Get Schwarzschild radius
      * @return rs = 2M
@@ -62,29 +69,6 @@ public:
 
 private:
     double mass_;  // Black hole mass in geometric units
-
-    /**
-     * @brief Compute Christoffel symbol components at position
-     * @param r Radial coordinate
-     * @param theta Polar angle
-     * @return Struct containing relevant Christoffel symbols
-     */
-    struct ChristoffelSymbols {
-        // Γ^r components
-        double gamma_r_rr;
-        double gamma_r_theta_theta;
-        double gamma_r_phi_phi;
-
-        // Γ^θ components
-        double gamma_theta_r_theta;
-        double gamma_theta_phi_phi;
-
-        // Γ^φ components
-        double gamma_phi_r_phi;
-        double gamma_phi_theta_phi;
-    };
-
-    ChristoffelSymbols computeChristoffel(double r, double theta) const;
 };
 
 } // namespace physics

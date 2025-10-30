@@ -1,9 +1,11 @@
 #include "core/UI.hpp"
 #include "physics/Schwarzschild.hpp"
+#include "physics/Kerr.hpp"
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 #include <GLFW/glfw3.h>
+#include <cmath>
 #include <iostream>
 
 namespace cosmic {
@@ -14,6 +16,10 @@ UI::UI(GLFWwindow* window)
       visible_(true),
       blackHoleMass_(1.0f),
       blackHoleMassChanged_(false),
+      metricType_(0),
+      metricTypeChanged_(false),
+      spin_(0.0f),
+      spinChanged_(false),
       maxRaySteps_(1000),
       stepSize_(0.1f),
       accretionDiskEnabled_(false),
@@ -73,6 +79,8 @@ void UI::render(rendering::Camera& camera,
 
     // Reset change flags
     blackHoleMassChanged_ = false;
+    metricTypeChanged_ = false;
+    spinChanged_ = false;
 
     // Render main control panel
     renderControlPanel(camera, metric, renderer);
@@ -108,11 +116,34 @@ void UI::renderControlPanel(rendering::Camera& camera,
             blackHoleMassChanged_ = true;
         }
 
-        if (metric) {
-            ImGui::Text("Event Horizon: %.2f M", metric->eventHorizonRadius());
-            ImGui::Text("Photon Sphere: %.2f M", metric->photonSphereRadius());
-            ImGui::Text("ISCO: %.2f M", metric->iscoRadius());
+        const char* metricOptions[] = {"Schwarzschild", "Kerr (rotating)"};
+        int previousMetric = metricType_;
+        if (ImGui::Combo("Metric", &metricType_, metricOptions, IM_ARRAYSIZE(metricOptions))) {
+            if (metricType_ != previousMetric) {
+                metricTypeChanged_ = true;
+            }
         }
+
+        if (metricType_ == 1) {
+            float oldSpin = spin_;
+            if (ImGui::SliderFloat("Spin (a/M)", &spin_, -0.998f, 0.998f, "%.3f")) {
+                if (std::abs(oldSpin - spin_) > 1e-6f) {
+                    spinChanged_ = true;
+                }
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Dimensionless spin parameter a/M (0 = Schwarzschild, 0.998 ≈ astrophysical limit)");
+            }
+        }
+
+    if (metric) {
+        ImGui::Text("Event Horizon: %.2f M", metric->eventHorizonRadius());
+        ImGui::Text("Photon Sphere: %.2f M", metric->photonSphereRadius());
+        ImGui::Text("ISCO: %.2f M", metric->iscoRadius());
+        if (auto* kerr = dynamic_cast<physics::Kerr*>(metric)) {
+            ImGui::Text("Spin (a/M): %.3f", kerr->getSpin());
+        }
+    }
     }
 
     ImGui::Spacing();

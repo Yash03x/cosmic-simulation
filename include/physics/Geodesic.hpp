@@ -18,15 +18,22 @@ public:
      * @brief State of a light ray during integration
      */
     struct State {
-        Eigen::Vector3d position;      // (r, θ, φ) in spherical coordinates
-        Eigen::Vector3d velocity;      // (dr/dλ, dθ/dλ, dφ/dλ)
+        Metric::FourVector position;   // (t, r, θ, φ)
+        Metric::FourVector momentum;   // p^μ = dx^μ/dλ
         double affineParameter;        // Affine parameter λ
         int stepCount;                 // Number of integration steps
+        double energy;                 // Conserved energy (-g_{tμ} p^μ)
+        double angularMomentum;        // Conserved L_z = g_{φμ} p^μ
+        double constraintError;        // |g_{μν} p^μ p^ν|
 
-        State() : position(Eigen::Vector3d::Zero()),
-                  velocity(Eigen::Vector3d::Zero()),
-                  affineParameter(0.0),
-                  stepCount(0) {}
+        State()
+            : position(Metric::FourVector::Zero()),
+              momentum(Metric::FourVector::Zero()),
+              affineParameter(0.0),
+              stepCount(0),
+              energy(0.0),
+              angularMomentum(0.0),
+              constraintError(0.0) {}
     };
 
     /**
@@ -36,7 +43,8 @@ public:
         Escaped,           // Ray escaped to infinity (r > escape radius)
         HitEventHorizon,   // Ray crossed event horizon
         MaxStepsReached,   // Maximum integration steps exceeded
-        NumericalError     // Numerical instability detected (NaN, Inf)
+        NumericalError,    // Numerical instability detected (NaN, Inf)
+        ConstraintViolation // Null constraint drift beyond tolerance
     };
 
     /**
@@ -100,8 +108,8 @@ private:
      * @return Time derivatives (velocity, acceleration)
      */
     struct StateDerivative {
-        Eigen::Vector3d velocity;
-        Eigen::Vector3d acceleration;
+        Metric::FourVector dx;
+        Metric::FourVector dp;
     };
 
     StateDerivative computeDerivative(const State& state) const;
@@ -114,11 +122,20 @@ private:
     bool isValidState(const State& state) const;
 
     /**
-     * @brief Clamp radial coordinate to prevent numerical issues
-     * @param r Radial coordinate
-     * @return Clamped value
+     * @brief Evaluate null constraint g_{μν} p^μ p^ν at a point
      */
-    double clampRadius(double r) const;
+    double computeNullConstraint(const Metric::FourVector& position,
+                                 const Metric::FourVector& momentum) const;
+
+    double computeEnergy(const Metric::FourVector& position,
+                         const Metric::FourVector& momentum) const;
+
+    double computeAngularMomentum(const Metric::FourVector& position,
+                                  const Metric::FourVector& momentum) const;
+
+    void enforceConservedQuantities(State& state) const;
+
+    double constraintTolerance_;
 };
 
 } // namespace physics

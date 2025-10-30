@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Eigen/Dense>
+#include <array>
 
 namespace cosmic {
 namespace physics {
@@ -13,6 +14,10 @@ namespace physics {
  */
 class Metric {
 public:
+    using FourVector = Eigen::Matrix<double, 4, 1>;
+    using MetricTensor = Eigen::Matrix<double, 4, 4>;
+    using ChristoffelTensor = std::array<MetricTensor, 4>; // Γ^μ_{αβ} for μ = 0..3
+
     virtual ~Metric() = default;
 
     /**
@@ -42,6 +47,28 @@ public:
     virtual Eigen::Vector3d geodesicAcceleration(
         const Eigen::Vector3d& position,
         const Eigen::Vector3d& velocity) const = 0;
+
+    /**
+     * @brief Compute the covariant metric tensor g_{μν} at a point
+     * @param position Four-position (t, r, θ, φ)
+     * @return 4x4 metric tensor
+     */
+    virtual MetricTensor metricTensor(const FourVector& position) const = 0;
+
+    /**
+     * @brief Compute the inverse metric tensor g^{μν} at a point
+     * @param position Four-position (t, r, θ, φ)
+     * @return 4x4 inverse metric tensor
+     */
+    virtual MetricTensor inverseMetricTensor(const FourVector& position) const = 0;
+
+    /**
+     * @brief Compute Christoffel symbols Γ^μ_{αβ} at a point
+     * @param position Four-position (t, r, θ, φ)
+     * @param outGamma Christoffel tensor to populate (μ major index)
+     */
+    virtual void christoffelSymbols(const FourVector& position,
+                                    ChristoffelTensor& outGamma) const = 0;
 
     /**
      * @brief Get black hole mass
