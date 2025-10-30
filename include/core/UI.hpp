@@ -126,6 +126,12 @@ private:
     bool accretionDiskEnabled_;
     float cameraSpeed_;
 
+    // Accretion disk physics parameters
+    float accretionRate_;
+    float alphaViscosity_;
+    float diskInclination_;
+    float scaleHeightRatio_;
+
     // Demo window
     bool showDemoWindow_;
 

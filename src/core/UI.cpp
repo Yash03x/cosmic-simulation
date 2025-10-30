@@ -18,6 +18,10 @@ UI::UI(GLFWwindow* window)
       stepSize_(0.1f),
       accretionDiskEnabled_(false),
       cameraSpeed_(10.0f),
+      accretionRate_(0.1f),
+      alphaViscosity_(0.1f),
+      diskInclination_(1.0f),
+      scaleHeightRatio_(0.05f),
       showDemoWindow_(false) {
 }
 
@@ -155,12 +159,57 @@ void UI::renderControlPanel(rendering::Camera& camera,
         }
 
         if (accretionDiskEnabled_) {
+            ImGui::Spacing();
+            ImGui::Text("Physics Parameters:");
+            ImGui::Separator();
+
+            // Accretion rate
+            if (ImGui::SliderFloat("Accretion Rate (Mdot)", &accretionRate_, 0.01f, 1.0f, "%.3f M☉/yr")) {
+                renderer.setAccretionRate(accretionRate_);
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Mass accretion rate in solar masses per year\n"
+                                 "Higher = hotter, brighter disk");
+            }
+
+            // Alpha viscosity
+            if (ImGui::SliderFloat("Alpha Viscosity", &alphaViscosity_, 0.01f, 0.3f, "%.3f")) {
+                renderer.setAlphaViscosity(alphaViscosity_);
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Shakura-Sunyaev viscosity parameter\n"
+                                 "Controls angular momentum transport");
+            }
+
+            // Scale height ratio
+            if (ImGui::SliderFloat("Scale Height (H/r)", &scaleHeightRatio_, 0.01f, 0.15f, "%.3f")) {
+                renderer.setScaleHeightRatio(scaleHeightRatio_);
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Disk thickness ratio\n"
+                                 "Lower = thinner disk");
+            }
+
+            // Disk inclination
+            float inclinationDeg = diskInclination_ * 180.0f / 3.14159f;
+            if (ImGui::SliderFloat("Inclination", &inclinationDeg, 0.0f, 90.0f, "%.1f°")) {
+                diskInclination_ = inclinationDeg * 3.14159f / 180.0f;
+                renderer.setDiskInclination(diskInclination_);
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Viewing angle\n"
+                                 "0° = face-on, 90° = edge-on");
+            }
+
+            ImGui::Spacing();
             ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "Active Features:");
-            ImGui::BulletText("Shakura-Sunyaev temperature profile");
-            ImGui::BulletText("Doppler shifts (blue/red)");
-            ImGui::BulletText("Relativistic beaming");
-            ImGui::BulletText("Keplerian orbital velocity");
-            ImGui::BulletText("Procedural turbulence");
+            ImGui::BulletText("Shakura-Sunyaev temperature");
+            ImGui::BulletText("Proper scale height H(r)");
+            ImGui::BulletText("Optical depth τ(r)");
+            ImGui::BulletText("Gravitational redshift");
+            ImGui::BulletText("Doppler shifts & beaming");
+            ImGui::BulletText("Radiative transfer");
+            ImGui::BulletText("Planck spectrum colors");
         }
     }
 

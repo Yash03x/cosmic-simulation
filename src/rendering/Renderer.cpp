@@ -13,7 +13,11 @@ Renderer::Renderer(int width, int height)
       maxRaySteps_(1000),
       stepSize_(0.1f),
       accretionDiskEnabled_(false),
-      backgroundColor_(0.0f, 0.0f, 0.0f) {
+      backgroundColor_(0.0f, 0.0f, 0.0f),
+      accretionRate_(0.1f),        // Moderate accretion rate
+      alphaViscosity_(0.1f),       // Standard Shakura-Sunyaev alpha
+      diskInclination_(1.0f),      // ~60 degrees viewing angle
+      scaleHeightRatio_(0.05f) {   // Thin disk: H/r ~ 0.05
 }
 
 Renderer::~Renderer() {
@@ -71,6 +75,12 @@ void Renderer::render(const Camera& camera, const physics::Metric* metric) {
     rayTracerShader_.setInt("uMaxSteps", maxRaySteps_);
     rayTracerShader_.setFloat("uStepSize", stepSize_);
     rayTracerShader_.setBool("uAccretionDiskEnabled", accretionDiskEnabled_);
+
+    // Accretion disk physics parameters
+    rayTracerShader_.setFloat("uAccretionRate", accretionRate_);
+    rayTracerShader_.setFloat("uAlphaViscosity", alphaViscosity_);
+    rayTracerShader_.setFloat("uDiskInclination", diskInclination_);
+    rayTracerShader_.setFloat("uScaleHeightRatio", scaleHeightRatio_);
 
     // Render fullscreen quad
     glBindVertexArray(quadVAO_);

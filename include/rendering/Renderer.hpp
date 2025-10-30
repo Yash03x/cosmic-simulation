@@ -88,6 +88,54 @@ public:
     bool isAccretionDiskEnabled() const { return accretionDiskEnabled_; }
 
     /**
+     * @brief Set accretion rate (Mdot in solar masses per year)
+     * @param rate Accretion rate (typical: 0.01 - 1.0)
+     */
+    void setAccretionRate(float rate) { accretionRate_ = rate; }
+
+    /**
+     * @brief Get accretion rate
+     * @return Current accretion rate
+     */
+    float getAccretionRate() const { return accretionRate_; }
+
+    /**
+     * @brief Set alpha viscosity parameter (Shakura-Sunyaev)
+     * @param alpha Viscosity parameter (typical: 0.01 - 0.1)
+     */
+    void setAlphaViscosity(float alpha) { alphaViscosity_ = alpha; }
+
+    /**
+     * @brief Get alpha viscosity
+     * @return Current alpha viscosity
+     */
+    float getAlphaViscosity() const { return alphaViscosity_; }
+
+    /**
+     * @brief Set disk inclination angle
+     * @param angle Viewing angle in radians (0 = face-on, π/2 = edge-on)
+     */
+    void setDiskInclination(float angle) { diskInclination_ = angle; }
+
+    /**
+     * @brief Get disk inclination
+     * @return Current inclination in radians
+     */
+    float getDiskInclination() const { return diskInclination_; }
+
+    /**
+     * @brief Set disk scale height ratio (H/r at ISCO)
+     * @param ratio Scale height ratio (typical: 0.01 - 0.1)
+     */
+    void setScaleHeightRatio(float ratio) { scaleHeightRatio_ = ratio; }
+
+    /**
+     * @brief Get scale height ratio
+     * @return Current H/r ratio
+     */
+    float getScaleHeightRatio() const { return scaleHeightRatio_; }
+
+    /**
      * @brief Set background color
      * @param r Red component (0-1)
      * @param g Green component (0-1)
@@ -123,6 +171,12 @@ private:
     float stepSize_;
     bool accretionDiskEnabled_;
     glm::vec3 backgroundColor_;
+
+    // Accretion disk physics parameters
+    float accretionRate_;      // Mdot in solar masses per year
+    float alphaViscosity_;     // Shakura-Sunyaev alpha (0.01-0.1)
+    float diskInclination_;    // Viewing angle in radians
+    float scaleHeightRatio_;   // H/r ratio at ISCO
 
     /**
      * @brief Setup fullscreen quad for ray tracing
