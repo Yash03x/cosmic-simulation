@@ -1,0 +1,73 @@
+#pragma once
+
+#include <Eigen/Dense>
+
+namespace cosmic {
+namespace physics {
+
+/**
+ * @brief Base class for spacetime metrics
+ *
+ * Defines the interface for different black hole metrics (Schwarzschild, Kerr, etc.)
+ * Uses geometric units where G = c = 1
+ */
+class Metric {
+public:
+    virtual ~Metric() = default;
+
+    /**
+     * @brief Get the event horizon radius
+     * @return Radius of the event horizon in geometric units
+     */
+    virtual double eventHorizonRadius() const = 0;
+
+    /**
+     * @brief Get the photon sphere radius
+     * @return Radius where light can orbit
+     */
+    virtual double photonSphereRadius() const = 0;
+
+    /**
+     * @brief Get the ISCO (Innermost Stable Circular Orbit) radius
+     * @return Radius of the innermost stable circular orbit
+     */
+    virtual double iscoRadius() const = 0;
+
+    /**
+     * @brief Compute geodesic acceleration for a particle/photon
+     * @param position Position in spherical coordinates (r, θ, φ)
+     * @param velocity Velocity/momentum in spherical coordinates
+     * @return Acceleration vector
+     */
+    virtual Eigen::Vector3d geodesicAcceleration(
+        const Eigen::Vector3d& position,
+        const Eigen::Vector3d& velocity) const = 0;
+
+    /**
+     * @brief Get black hole mass
+     * @return Mass in geometric units (solar masses)
+     */
+    virtual double getMass() const = 0;
+
+    /**
+     * @brief Check if position is inside event horizon
+     * @param r Radial coordinate
+     * @return True if inside event horizon
+     */
+    virtual bool isInsideEventHorizon(double r) const {
+        return r < eventHorizonRadius();
+    }
+
+    /**
+     * @brief Check if position is in photon sphere region
+     * @param r Radial coordinate
+     * @return True if near photon sphere
+     */
+    virtual bool isNearPhotonSphere(double r) const {
+        double rPhoton = photonSphereRadius();
+        return std::abs(r - rPhoton) < 0.1 * rPhoton;
+    }
+};
+
+} // namespace physics
+} // namespace cosmic
