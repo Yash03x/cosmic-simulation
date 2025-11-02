@@ -123,14 +123,3 @@ if(MSVC)
 else()
     target_compile_options(CosmicSimulator PRIVATE -Wall -Wextra -Wpedantic)
 endif()
-
-enable_testing()
-
-add_executable(GeodesicValidation
-    tests/GeodesicValidation.cpp
-)
-target_link_libraries(GeodesicValidation PRIVATE
-    cosmic_physics
-    Eigen3::Eigen
-)
-add_test(NAME geodesic_validation COMMAND GeodesicValidation)

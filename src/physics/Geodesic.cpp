@@ -221,6 +221,9 @@ void GeodesicIntegrator::enforceConservedQuantities(State& state) const {
         state.momentum[1] *= scale;
         state.momentum[2] *= scale;
     }
+
+    state.energy = E;
+    state.angularMomentum = L;
 }
 
 } // namespace physics
