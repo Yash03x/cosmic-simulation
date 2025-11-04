@@ -52,7 +52,7 @@ GeodesicIntegrator::Result GeodesicIntegrator::integrate(
         }
 
         try {
-            rk4Step(state, stepSize_);
+            rkdp5Step(state, stepSize_);
         } catch (const std::domain_error&) {
             return Result::HitEventHorizon;
         }
@@ -72,75 +72,74 @@ GeodesicIntegrator::Result GeodesicIntegrator::integrate(
     return Result::MaxStepsReached;
 }
 
-void GeodesicIntegrator::rk4Step(State& state, double& h) {
-    State originalState = state;
-    StateDerivative k1, k2, k3, k4;
+void GeodesicIntegrator::rkdp5Step(State& state, double& h) {
+    // Dormand-Prince 5(4) method coefficients
+    constexpr double c2 = 1.0/5.0, c3 = 3.0/10.0, c4 = 4.0/5.0, c5 = 8.0/9.0, c6 = 1.0, c7 = 1.0;
 
-    // Full step
-    k1 = computeDerivative(state);
+    constexpr double a21 = 1.0/5.0;
+    constexpr double a31 = 3.0/40.0, a32 = 9.0/40.0;
+    constexpr double a41 = 44.0/45.0, a42 = -56.0/15.0, a43 = 32.0/9.0;
+    constexpr double a51 = 19372.0/6561.0, a52 = -25360.0/2187.0, a53 = 64448.0/6561.0, a54 = -212.0/729.0;
+    constexpr double a61 = 9017.0/3168.0, a62 = -355.0/33.0, a63 = 46732.0/5247.0, a64 = 49.0/176.0, a65 = -5103.0/18656.0;
+    constexpr double a71 = 35.0/384.0, a73 = 500.0/1113.0, a74 = 125.0/192.0, a75 = -2187.0/6784.0, a76 = 11.0/84.0;
+
+    // 5th order solution coefficients
+    constexpr double b1 = 35.0/384.0, b3 = 500.0/1113.0, b4 = 125.0/192.0, b5 = -2187.0/6784.0, b6 = 11.0/84.0;
+
+    // Error estimation coefficients (difference between 5th and 4th order solutions)
+    constexpr double e1 = 71.0/57600.0, e3 = -71.0/16695.0, e4 = 71.0/1920.0, e5 = -17253.0/339200.0, e6 = 22.0/525.0, e7 = -1.0/40.0;
+
     State temp = state;
-    temp.position += k1.dx * (h * 0.5);
-    temp.momentum += k1.dp * (h * 0.5);
+    StateDerivative k1, k2, k3, k4, k5, k6, k7;
+
+    k1 = computeDerivative(state);
+
+    temp.position = state.position + k1.dx * h * a21;
+    temp.momentum = state.momentum + k1.dp * h * a21;
     k2 = computeDerivative(temp);
-    temp = state;
-    temp.position += k2.dx * (h * 0.5);
-    temp.momentum += k2.dp * (h * 0.5);
+
+    temp.position = state.position + (k1.dx * a31 + k2.dx * a32) * h;
+    temp.momentum = state.momentum + (k1.dp * a31 + k2.dp * a32) * h;
     k3 = computeDerivative(temp);
-    temp = state;
-    temp.position += k3.dx * h;
-    temp.momentum += k3.dp * h;
+
+    temp.position = state.position + (k1.dx * a41 + k2.dx * a42 + k3.dx * a43) * h;
+    temp.momentum = state.momentum + (k1.dp * a41 + k2.dp * a42 + k3.dp * a43) * h;
     k4 = computeDerivative(temp);
 
-    Metric::FourVector pos_h = state.position + (k1.dx + 2.0 * k2.dx + 2.0 * k3.dx + k4.dx) * (h / 6.0);
-    Metric::FourVector mom_h = state.momentum + (k1.dp + 2.0 * k2.dp + 2.0 * k3.dp + k4.dp) * (h / 6.0);
+    temp.position = state.position + (k1.dx * a51 + k2.dx * a52 + k3.dx * a53 + k4.dx * a54) * h;
+    temp.momentum = state.momentum + (k1.dp * a51 + k2.dp * a52 + k3.dp * a53 + k4.dp * a54) * h;
+    k5 = computeDerivative(temp);
 
-    // Two half steps
-    double h_half = h * 0.5;
-    State state_half = originalState;
+    temp.position = state.position + (k1.dx * a61 + k2.dx * a62 + k3.dx * a63 + k4.dx * a64 + k5.dx * a65) * h;
+    temp.momentum = state.momentum + (k1.dp * a61 + k2.dp * a62 + k3.dp * a63 + k4.dp * a64 + k5.dp * a65) * h;
+    k6 = computeDerivative(temp);
 
-    k1 = computeDerivative(state_half);
-    temp = state_half;
-    temp.position += k1.dx * (h_half * 0.5);
-    temp.momentum += k1.dp * (h_half * 0.5);
-    k2 = computeDerivative(temp);
-    temp = state_half;
-    temp.position += k2.dx * (h_half * 0.5);
-    temp.momentum += k2.dp * (h_half * 0.5);
-    k3 = computeDerivative(temp);
-    temp = state_half;
-    temp.position += k3.dx * h_half;
-    temp.momentum += k3.dp * h_half;
-    k4 = computeDerivative(temp);
-    state_half.position += (k1.dx + 2.0 * k2.dx + 2.0 * k3.dx + k4.dx) * (h_half / 6.0);
-    state_half.momentum += (k1.dp + 2.0 * k2.dp + 2.0 * k3.dp + k4.dp) * (h_half / 6.0);
+    // The 7th stage calculation uses the 5th order coefficients (a7_i = b_i)
+    temp.position = state.position + (k1.dx * a71 + k3.dx * a73 + k4.dx * a74 + k5.dx * a75 + k6.dx * a76) * h;
+    temp.momentum = state.momentum + (k1.dp * a71 + k3.dp * a73 + k4.dp * a74 + k5.dp * a75 + k6.dp * a76) * h;
+    k7 = computeDerivative(temp);
 
-    k1 = computeDerivative(state_half);
-    temp = state_half;
-    temp.position += k1.dx * (h_half * 0.5);
-    temp.momentum += k1.dp * (h_half * 0.5);
-    k2 = computeDerivative(temp);
-    temp = state_half;
-    temp.position += k2.dx * (h_half * 0.5);
-    temp.momentum += k2.dp * (h_half * 0.5);
-    k3 = computeDerivative(temp);
-    temp = state_half;
-    temp.position += k3.dx * h_half;
-    temp.momentum += k3.dp * h_half;
-    k4 = computeDerivative(temp);
+    // Update state with the 5th order solution
+    state.position += (k1.dx * b1 + k3.dx * b3 + k4.dx * b4 + k5.dx * b5 + k6.dx * b6) * h;
+    state.momentum += (k1.dp * b1 + k3.dp * b3 + k4.dp * b4 + k5.dp * b5 + k6.dp * b6) * h;
 
-    Metric::FourVector pos_2h_half = state_half.position + (k1.dx + 2.0 * k2.dx + 2.0 * k3.dx + k4.dx) * (h_half / 6.0);
-    Metric::FourVector mom_2h_half = state_half.momentum + (k1.dp + 2.0 * k2.dp + 2.0 * k3.dp + k4.dp) * (h_half / 6.0);
+    // Estimate error
+    Metric::FourVector posError = (k1.dx * e1 + k3.dx * e3 + k4.dx * e4 + k5.dx * e5 + k6.dx * e6 + k7.dx * e7) * h;
+    Metric::FourVector momError = (k1.dp * e1 + k3.dp * e3 + k4.dp * e4 + k5.dp * e5 + k6.dp * e6 + k7.dp * e7) * h;
+    double error = posError.norm() + momError.norm();
 
-    // Error estimation (difference between one full step and two half steps)
-    double error = (pos_h - pos_2h_half).norm() + (mom_h - mom_2h_half).norm();
+    // Store the previous step size
+    double h_old = h;
 
     // Update step size
     h = adaptiveController_.computeNextStep(h, error);
 
-    // Update state using the more accurate two-half-steps result
-    state.position = pos_2h_half;
-    state.momentum = mom_2h_half;
-    state.affineParameter += h;
+    // Update affine parameter with the actual step size taken
+    state.affineParameter += h_old;
+}
+
+void GeodesicIntegrator::rk4Step(State& state, double& h) {
+    rkdp5Step(state, h);
 }
 
 void GeodesicIntegrator::setStepSize(double stepSize) {

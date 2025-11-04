@@ -16,7 +16,9 @@ double AdaptiveStepController::computeNextStep(double currentStep, double error)
         return std::min(maxStep_, currentStep * 2.0);
     }
 
-    double stepRatio = safetyFactor_ * std::pow(tolerance_ / error, 0.2);
+    // The new integrator is more stable, so we can be more aggressive with the step size.
+    // I will change the exponent from 0.2 to 0.25, which will make the step size larger when the error is small.
+    double stepRatio = safetyFactor_ * std::pow(tolerance_ / error, 0.25);
     double nextStep = currentStep * stepRatio;
 
     return std::max(minStep_, std::min(maxStep_, nextStep));

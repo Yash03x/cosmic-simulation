@@ -42,6 +42,8 @@ public:
 
     Result integrate(State& state, int maxSteps = constants::MAX_INTEGRATION_STEPS);
 
+    void rkdp5Step(State& state, double& h);
+
     void rk4Step(State& state, double& h);
 
     void setStepSize(double stepSize);
