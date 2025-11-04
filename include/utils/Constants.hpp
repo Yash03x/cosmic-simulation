@@ -33,6 +33,8 @@ namespace constants {
     constexpr double MAX_STEP_SIZE = 1.0;
     constexpr int MAX_INTEGRATION_STEPS = 2000;
     constexpr double NULL_CONSTRAINT_TOLERANCE = 1e-8;
+    constexpr double ADAPTIVE_TOLERANCE = 1e-6;
+    constexpr double ADAPTIVE_SAFETY_FACTOR = 0.9;
 
     // Rendering parameters
     constexpr double ESCAPE_RADIUS = 100.0; // Ray escapes if r > this

@@ -59,6 +59,7 @@ set(SOURCES
     src/core/Application.cpp
     src/core/Window.cpp
     src/core/UI.cpp
+    src/core/AdaptiveStepController.cpp
     src/rendering/Camera.cpp
     src/rendering/Shader.cpp
     src/rendering/Renderer.cpp

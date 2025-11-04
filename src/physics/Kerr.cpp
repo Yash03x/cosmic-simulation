@@ -387,34 +387,11 @@ Metric::MetricTensor Kerr::metricTensor(const FourVector& position) const {
 }
 
 Metric::MetricTensor Kerr::inverseMetricTensor(const FourVector& position) const {
-    Metric::MetricTensor inv;
     double r = position[1];
-    double theta = position[2];
-    double a = toSpinParameter(mass_, spin_);
     if (r <= eventHorizonRadius()) {
         throw std::domain_error("Kerr metric undefined at/inside event horizon");
     }
-
-    MetricCache cache = computeMetricCache(mass_, a, r, theta);
-    const double Sigma = cache.Sigma;
-    const double Delta = cache.Delta;
-    const double sinTheta = cache.sinTheta;
-    const double sin2 = cache.sin2Theta;
-
-    double factor = 1.0 / (Sigma * Delta);
-    double gttNumerator = (cache.A);
-    double gtphiNumerator = 2.0 * mass_ * r * a;
-    double gphiphiNumerator = Delta - a * a * sin2;
-
-    inv.setZero();
-    inv(0, 0) = -gttNumerator * factor;
-    inv(0, 3) = -gtphiNumerator * factor;
-    inv(3, 0) = inv(0, 3);
-    inv(3, 3) = gphiphiNumerator / (Sigma * Delta * sin2);
-    inv(1, 1) = Delta / Sigma;
-    inv(2, 2) = 1.0 / Sigma;
-
-    return inv;
+    return metricTensor(position).inverse();
 }
 
 void Kerr::christoffelSymbols(const FourVector& position,

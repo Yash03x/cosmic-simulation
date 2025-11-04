@@ -6,16 +6,20 @@
 namespace cosmic {
 namespace physics {
 
-GeodesicIntegrator::GeodesicIntegrator(const Metric* metric, double stepSize)
+GeodesicIntegrator::GeodesicIntegrator(const Metric* metric, double initialStepSize)
     : metric_(metric),
-      stepSize_(stepSize),
+      stepSize_(initialStepSize),
+      adaptiveController_(constants::ADAPTIVE_TOLERANCE,
+                          constants::ADAPTIVE_SAFETY_FACTOR,
+                          constants::MIN_STEP_SIZE,
+                          constants::MAX_STEP_SIZE),
       escapeRadius_(constants::ESCAPE_RADIUS),
       constraintTolerance_(constants::NULL_CONSTRAINT_TOLERANCE) {
     if (!metric_) {
         throw std::invalid_argument("Metric pointer cannot be null");
     }
     if (stepSize_ <= 0.0) {
-        throw std::invalid_argument("Integration step size must be positive");
+        throw std::invalid_argument("Initial step size must be positive");
     }
 }
 
@@ -35,7 +39,6 @@ GeodesicIntegrator::Result GeodesicIntegrator::integrate(
         state.stepCount = step;
 
         const double r = state.position[1];
-
         if (!std::isfinite(r) || r <= 0.0) {
             return Result::NumericalError;
         }
@@ -69,34 +72,74 @@ GeodesicIntegrator::Result GeodesicIntegrator::integrate(
     return Result::MaxStepsReached;
 }
 
-void GeodesicIntegrator::rk4Step(State& state, double h) {
-    StateDerivative k1 = computeDerivative(state);
+void GeodesicIntegrator::rk4Step(State& state, double& h) {
+    State originalState = state;
+    StateDerivative k1, k2, k3, k4;
 
+    // Full step
+    k1 = computeDerivative(state);
     State temp = state;
     temp.position += k1.dx * (h * 0.5);
     temp.momentum += k1.dp * (h * 0.5);
-    StateDerivative k2 = computeDerivative(temp);
-
+    k2 = computeDerivative(temp);
     temp = state;
     temp.position += k2.dx * (h * 0.5);
     temp.momentum += k2.dp * (h * 0.5);
-    StateDerivative k3 = computeDerivative(temp);
-
+    k3 = computeDerivative(temp);
     temp = state;
     temp.position += k3.dx * h;
     temp.momentum += k3.dp * h;
-    StateDerivative k4 = computeDerivative(temp);
+    k4 = computeDerivative(temp);
 
-    state.position += (k1.dx +
-                       2.0 * k2.dx +
-                       2.0 * k3.dx +
-                       k4.dx) * (h / 6.0);
+    Metric::FourVector pos_h = state.position + (k1.dx + 2.0 * k2.dx + 2.0 * k3.dx + k4.dx) * (h / 6.0);
+    Metric::FourVector mom_h = state.momentum + (k1.dp + 2.0 * k2.dp + 2.0 * k3.dp + k4.dp) * (h / 6.0);
 
-    state.momentum += (k1.dp +
-                       2.0 * k2.dp +
-                       2.0 * k3.dp +
-                       k4.dp) * (h / 6.0);
+    // Two half steps
+    double h_half = h * 0.5;
+    State state_half = originalState;
 
+    k1 = computeDerivative(state_half);
+    temp = state_half;
+    temp.position += k1.dx * (h_half * 0.5);
+    temp.momentum += k1.dp * (h_half * 0.5);
+    k2 = computeDerivative(temp);
+    temp = state_half;
+    temp.position += k2.dx * (h_half * 0.5);
+    temp.momentum += k2.dp * (h_half * 0.5);
+    k3 = computeDerivative(temp);
+    temp = state_half;
+    temp.position += k3.dx * h_half;
+    temp.momentum += k3.dp * h_half;
+    k4 = computeDerivative(temp);
+    state_half.position += (k1.dx + 2.0 * k2.dx + 2.0 * k3.dx + k4.dx) * (h_half / 6.0);
+    state_half.momentum += (k1.dp + 2.0 * k2.dp + 2.0 * k3.dp + k4.dp) * (h_half / 6.0);
+
+    k1 = computeDerivative(state_half);
+    temp = state_half;
+    temp.position += k1.dx * (h_half * 0.5);
+    temp.momentum += k1.dp * (h_half * 0.5);
+    k2 = computeDerivative(temp);
+    temp = state_half;
+    temp.position += k2.dx * (h_half * 0.5);
+    temp.momentum += k2.dp * (h_half * 0.5);
+    k3 = computeDerivative(temp);
+    temp = state_half;
+    temp.position += k3.dx * h_half;
+    temp.momentum += k3.dp * h_half;
+    k4 = computeDerivative(temp);
+
+    Metric::FourVector pos_2h_half = state_half.position + (k1.dx + 2.0 * k2.dx + 2.0 * k3.dx + k4.dx) * (h_half / 6.0);
+    Metric::FourVector mom_2h_half = state_half.momentum + (k1.dp + 2.0 * k2.dp + 2.0 * k3.dp + k4.dp) * (h_half / 6.0);
+
+    // Error estimation (difference between one full step and two half steps)
+    double error = (pos_h - pos_2h_half).norm() + (mom_h - mom_2h_half).norm();
+
+    // Update step size
+    h = adaptiveController_.computeNextStep(h, error);
+
+    // Update state using the more accurate two-half-steps result
+    state.position = pos_2h_half;
+    state.momentum = mom_2h_half;
     state.affineParameter += h;
 }
 

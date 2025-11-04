@@ -11,56 +11,57 @@ Schwarzschild::Schwarzschild(double mass) : mass_(mass) {
     }
 }
 
-Eigen::Vector3d Schwarzschild::geodesicAcceleration(
-    const Eigen::Vector3d& pos,
-    const Eigen::Vector3d& vel) const {
-
+Eigen::Vector3d Schwarzschild::geodesicAcceleration(const Eigen::Vector3d& pos, const Eigen::Vector3d& vel) const {
     double r = pos[0];
     double theta = pos[1];
+    double phi = pos[2];
+
+    if (r <= eventHorizonRadius()) {
+        throw std::domain_error("Schwarzschild coordinates undefined at/inside event horizon");
+    }
+
+    // Four-position and four-velocity are needed for the geodesic equation.
+    // The time component of the position is not needed for Christoffel symbols, so we can use a dummy value.
+    FourVector fourPos(0.0, r, theta, phi);
+
+    // The time component of the velocity (dt/dλ) is not provided.
+    // We need to calculate it from the metric and the fact that for a photon, the four-velocity squared is zero.
+    // g_μν (dx^μ/dλ)(dx^ν/dλ) = 0
+    MetricTensor g = metricTensor(fourPos);
+    double g_tt = g(0, 0);
+    double g_rr = g(1, 1);
+    double g_thetatheta = g(2, 2);
+    double g_phiphi = g(3, 3);
 
     double dr = vel[0];
     double dtheta = vel[1];
     double dphi = vel[2];
 
-    // Schwarzschild radius
-    double rs = schwarzschildRadius();
+    // Solve for dt/dλ
+    double dt_dlambda_sq = -(g_rr * dr * dr + g_thetatheta * dtheta * dtheta + g_phiphi * dphi * dphi) / g_tt;
+    if (dt_dlambda_sq < 0) {
+        // This can happen due to numerical precision issues close to the horizon
+        dt_dlambda_sq = 0;
+    }
+    double dt_dlambda = std::sqrt(dt_dlambda_sq);
 
-    if (r <= rs) {
-        throw std::domain_error("Schwarzschild coordinates undefined at/inside event horizon");
+    FourVector fourVel(dt_dlambda, dr, dtheta, dphi);
+
+    ChristoffelTensor gamma;
+    christoffelSymbols(fourPos, gamma);
+
+    Eigen::Vector3d acceleration = Eigen::Vector3d::Zero();
+    for (int mu = 1; mu < 4; ++mu) { // Iterate over spatial components r, θ, φ
+        double sum = 0.0;
+        for (int alpha = 0; alpha < 4; ++alpha) {
+            for (int beta = 0; beta < 4; ++beta) {
+                sum += gamma[mu](alpha, beta) * fourVel[alpha] * fourVel[beta];
+            }
+        }
+        acceleration[mu - 1] = -sum;
     }
 
-    double sinTheta = std::sin(theta);
-    double cosTheta = std::cos(theta);
-
-    double gamma_r_rr = rs / (2.0 * r * (r - rs)); // Γ^r_{rr}
-    double gamma_r_theta_theta = -(r - rs);        // Γ^r_{θθ}
-    double gamma_r_phi_phi = gamma_r_theta_theta * sinTheta * sinTheta; // Γ^r_{φφ}
-
-    double gamma_theta_r_theta = 1.0 / r;                  // Γ^θ_{rθ}
-    double gamma_theta_phi_phi = -sinTheta * cosTheta;     // Γ^θ_{φφ}
-
-    double gamma_phi_r_phi = 1.0 / r;                      // Γ^φ_{rφ}
-    double gamma_phi_theta_phi = 0.0;                      // Γ^φ_{θφ}
-    if (std::abs(sinTheta) > constants::EPSILON) {
-        gamma_phi_theta_phi = cosTheta / sinTheta;
-    }
-
-    // Compute geodesic acceleration: d²x^μ/dλ² = -Γ^μ_αβ (dx^α/dλ)(dx^β/dλ)
-
-    // d²r/dλ²
-    double d2r = -gamma_r_rr * dr * dr
-                 -gamma_r_theta_theta * dtheta * dtheta
-                 -gamma_r_phi_phi * dphi * dphi;
-
-    // d²θ/dλ²
-    double d2theta = -2.0 * gamma_theta_r_theta * dr * dtheta
-                     -gamma_theta_phi_phi * dphi * dphi;
-
-    // d²φ/dλ²
-    double d2phi = -2.0 * gamma_phi_r_phi * dr * dphi
-                   -2.0 * gamma_phi_theta_phi * dtheta * dphi;
-
-    return Eigen::Vector3d(d2r, d2theta, d2phi);
+    return acceleration;
 }
 
 Metric::MetricTensor Schwarzschild::metricTensor(const FourVector& position) const {
