@@ -12,6 +12,9 @@ namespace constants {
     // Gravitational constant (= 1 in geometric units)
     constexpr double GRAVITATIONAL_CONSTANT = 1.0;
 
+    // Planck constant (cgs units)
+    constexpr double PLANCK = 6.626e-27; // erg·s
+
     // Mathematical constants
     constexpr double PI = 3.14159265358979323846;
     constexpr double TWO_PI = 2.0 * PI;

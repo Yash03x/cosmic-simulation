@@ -42,11 +42,15 @@ target_include_directories(imgui PUBLIC
 )
 target_link_libraries(imgui PUBLIC glfw glad)
 
-# Core physics library (Schwarzschild metric and geodesic integration)
+# Core physics library (metrics, geodesics, observables, polarization, accretion, validation)
 add_library(cosmic_physics STATIC
     src/physics/Schwarzschild.cpp
     src/physics/Kerr.cpp
     src/physics/Geodesic.cpp
+    src/physics/Observables.cpp
+    src/physics/Polarization.cpp
+    src/physics/AccretionDisk.cpp
+    src/physics/Validation.cpp
 )
 target_include_directories(cosmic_physics PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -75,7 +79,12 @@ set(HEADERS
     include/rendering/Renderer.hpp
     include/physics/Metric.hpp
     include/physics/Schwarzschild.hpp
+    include/physics/Kerr.hpp
     include/physics/Geodesic.hpp
+    include/physics/Observables.hpp
+    include/physics/Polarization.hpp
+    include/physics/AccretionDisk.hpp
+    include/physics/Validation.hpp
     include/utils/Constants.hpp
 )
 

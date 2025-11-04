@@ -7,17 +7,24 @@ A real-time 3D black hole simulator built with C++ and OpenGL, featuring physica
 ### ✨ Current Implementation
 
 **Physics Engine:**
-- ⚫ **Schwarzschild Metric** - Non-rotating black hole simulation
-- 🌀 **Ray Tracing with Gravitational Deflection** - Simplified inverse-cube approximation for real-time performance
+- ⚫ **Schwarzschild Metric** - Non-rotating black hole simulation with full Christoffel symbol computation
+- 🌀 **Kerr Metric** - Rotating black holes with frame dragging and ergosphere
 - 🔵 **Gravitational Lensing** - Real-time spacetime curvature effects
-- 📐 **Physics-Based Parameters** - Event horizon, photon sphere, ISCO calculations
+- 📐 **Geodesic Integration** - RK4 and adaptive RK5(4) Dormand-Prince methods
+- ⚡ **Conservation Laws** - Energy and angular momentum enforcement
+- 📊 **Observables** - X-ray spectra, iron K-α line profiles, transfer functions
+- 🧲 **Polarization** - Parallel transport and Stokes parameters
+- 🔬 **Physics Validation** - Automated test suite against analytical solutions
 
 **Accretion Disk:**
-- 💿 **Realistic Geometry** - ISCO (r = 6M) to outer radius
-- 🌡️  **Temperature Profile** - Shakura-Sunyaev model
-- 🎨 **Blackbody Radiation** - Physics-based color temperature
+- 💿 **Multiple Disk Models** - Shakura-Sunyaev, ADAF, Slim Disk models
+- 🌡️  **Advanced Temperature Profiles** - Vertical structure integration
+- 🎨 **Multi-Opacity Radiative Transfer** - Thomson, free-free, bound-free, H⁻
 - 🔴🔵 **Doppler Shifts** - Red/blue shifting from orbital motion
 - ⚡ **Relativistic Beaming** - Brightness enhancement effects
+- 🧲 **Magnetic Fields** - Equipartition MRI-driven turbulent fields
+- 📈 **Spectral Energy Distribution** - Full SED calculation
+- 🌀 **Vertical Structure** - Self-consistent density and temperature profiles
 
 **Rendering:**
 - 🌟 **Procedural Starfield** - Multi-layer star generation
@@ -31,15 +38,22 @@ A real-time 3D black hole simulator built with C++ and OpenGL, featuring physica
 - ⌨️  **Keyboard + Mouse** - Full 3D navigation
 - 📋 **Presets** - Stellar mass vs supermassive black holes
 
-### 🚀 Planned Features
+### 🚀 Advanced Physics Tools for Researchers
 
-- **Kerr Metric** - Rotating black holes with frame dragging
-- **Neutron Stars** - Surface rendering with magnetic fields
-- **Pulsars** - Rotating beam emission
-- **Binary Systems** - Two black holes orbiting
-- **Skybox Textures** - Real astronomical images
-- **GPU Optimization** - Compute shaders for physics
-- **Video Export** - Record camera paths
+**✅ Implemented:**
+- **Kerr Metric** - Full rotating black hole implementation with spin up to 0.998
+- **QPO Analysis** - Epicyclic frequency calculator for quasi-periodic oscillations
+- **Iron Line Profiles** - Relativistic line profile generator
+- **Transfer Functions** - Reverberation mapping calculations
+- **Validation Suite** - Automated testing against Bardeen et al. (1972), EHT results
+
+**🚧 In Development:**
+- **Diagnostic Visualizations** - False color maps for temperature, velocity, density
+- **Neutron Stars** - Surface rendering with magnetic field structures
+- **Pulsars** - Rotating beam emission patterns
+- **Binary Systems** - Two black holes with gravitational wave emission
+- **GPU Compute Shaders** - Accelerated physics on GPU
+- **Python Bindings** - Easy scripting interface for batch analysis
 
 ## Requirements
 
@@ -121,6 +135,61 @@ cmake --build .
 - **Camera** - Speed control, position reset
 - **Accretion Disk** - Enable/disable, see parameters
 - **Statistics** - FPS, frame time, position info
+
+## Physics Modules for Researchers
+
+This simulator provides comprehensive physics modules suitable for astrophysics research:
+
+### Available Modules
+
+1. **`physics/Schwarzschild`** - Non-rotating black holes
+2. **`physics/Kerr`** - Rotating black holes (spin 0 to 0.998)
+3. **`physics/Geodesic`** - Adaptive RK5(4) geodesic integrator
+4. **`physics/Observables`** - X-ray spectra, iron lines, QPOs, transfer functions
+5. **`physics/Polarization`** - Parallel transport and Stokes parameters
+6. **`physics/AccretionDisk`** - Shakura-Sunyaev, ADAF, Slim Disk models
+7. **`physics/Validation`** - Test suite with 20+ analytical benchmarks
+
+### Example Usage
+
+```cpp
+#include "physics/Kerr.hpp"
+#include "physics/Observables.hpp"
+
+// Create a maximally rotating black hole
+cosmic::physics::Kerr kerr(1.0, 0.998);  // Mass=1 M☉, spin=0.998
+
+// Get critical radii
+double r_horizon = kerr.eventHorizonRadius();    // ~1.15 M
+double r_isco = kerr.iscoRadius();               // ~1.24 M
+double omega = kerr.frameDraggingOmega(r, theta); // Frame dragging
+
+// Compute observable signatures
+cosmic::physics::Observables obs(&kerr);
+auto iron_line = obs.ironLineProfile(line_params, r_isco, 100.0, inclination);
+auto transfer_func = obs.transferFunction(height, r_isco, 50.0, inclination);
+
+// Analyze QPOs
+cosmic::physics::QPOAnalyzer qpo(&kerr);
+auto frequencies = qpo.orbitalFrequencies(10.0);  // At r=10M
+```
+
+### Running Validation Tests
+
+```cpp
+#include "physics/Validation.hpp"
+
+cosmic::physics::PhysicsValidator validator;
+auto report = validator.runAllTests();
+
+// Check results
+std::cout << "Passed: " << report.passedTests << "/" << report.totalTests << std::endl;
+std::cout << "Average error: " << report.averageError << std::endl;
+```
+
+### Physics Documentation
+
+See [`docs/PHYSICS.md`](docs/PHYSICS.md) for complete mathematical derivations, validation results, and literature references.
 
 ## Physics
 
