@@ -66,6 +66,7 @@ set(SOURCES
     src/rendering/Shader.cpp
     src/rendering/Renderer.cpp
     src/tools/MeasurementTools.cpp
+    src/tools/ParticleTrajectory.cpp
 )
 
 # Header files
@@ -82,6 +83,7 @@ set(HEADERS
     include/physics/Geodesic.hpp
     include/utils/Constants.hpp
     include/tools/MeasurementTools.hpp
+    include/tools/ParticleTrajectory.hpp
 )
 
 # Main executable

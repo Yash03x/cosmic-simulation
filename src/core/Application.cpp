@@ -154,6 +154,9 @@ void Application::update(float deltaTime) {
         std::cout << "\n";
     }
 
+    // Update particle trajectory system
+    ui_->getParticleSystem().update(deltaTime);
+
     ui_->resetChangeFlags();
 }
 

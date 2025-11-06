@@ -102,6 +102,9 @@ void UI::render(rendering::Camera& camera,
     // Render measurement tools panel
     renderMeasurementPanel(metric);
 
+    // Render particle trajectory panel
+    renderParticlePanel(metric);
+
     // Render about panel
     renderAboutPanel();
 
@@ -689,6 +692,123 @@ void UI::renderMeasurementPanel(physics::Metric* metric) {
     if (!redshifts.empty()) {
         ImGui::Text("Redshifts: %zu", redshifts.size());
     }
+
+    ImGui::End();
+}
+
+void UI::renderParticlePanel(physics::Metric* metric) {
+    ImGui::SetNextWindowPos(ImVec2(1530, 10), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(350, 400), ImGuiCond_FirstUseEver);
+
+    ImGui::Begin("Particle Trajectories", nullptr, ImGuiWindowFlags_None);
+
+    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "Geodesic Integration");
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    if (!metric) {
+        ImGui::TextDisabled("No metric available");
+        ImGui::End();
+        return;
+    }
+
+    // Particle system active toggle
+    bool active = particleSystem_.isActive();
+    if (ImGui::Checkbox("System Active", &active)) {
+        particleSystem_.setActive(active);
+    }
+
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Enable to integrate trajectories over time");
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Display current trajectories
+    size_t count = particleSystem_.getTrajectoryCount();
+    ImGui::Text("Active trajectories: %zu", count);
+
+    ImGui::Spacing();
+
+    // Preset trajectories
+    ImGui::Text("Add Preset Orbits:");
+
+    double isco = metric->iscoRadius();
+    double photonSphere = metric->photonSphereRadius();
+
+    if (ImGui::Button("Stable Circular Orbit", ImVec2(-1, 0))) {
+        float radius = static_cast<float>(isco) * 1.5f;
+        particleSystem_.addCircularOrbit(radius, metric);
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Add a stable circular orbit at 1.5x ISCO");
+    }
+
+    if (ImGui::Button("ISCO Orbit", ImVec2(-1, 0))) {
+        particleSystem_.addCircularOrbit(static_cast<float>(isco), metric);
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Innermost Stable Circular Orbit\nOrbits closer are unstable!");
+    }
+
+    if (ImGui::Button("Photon Sphere Orbit", ImVec2(-1, 0))) {
+        particleSystem_.addCircularOrbit(static_cast<float>(photonSphere), metric);
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Unstable orbit at photon sphere\nPhotons can orbit here!");
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Text("Elliptical Orbits:");
+
+    static float periapsis = 8.0f;
+    static float apoapsis = 15.0f;
+
+    ImGui::SliderFloat("Periapsis", &periapsis, static_cast<float>(isco),  30.0f, "%.1f M");
+    ImGui::SliderFloat("Apoapsis", &apoapsis, periapsis, 50.0f, "%.1f M");
+
+    if (ImGui::Button("Add Elliptical Orbit", ImVec2(-1, 0))) {
+        particleSystem_.addEllipticalOrbit(periapsis, apoapsis, metric);
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Add an elliptical orbit with given periapsis/apoapsis");
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Text("Radial Trajectories:");
+
+    static float infallRadius = 20.0f;
+    ImGui::SliderFloat("Start Radius", &infallRadius, static_cast<float>(isco), 50.0f, "%.1f M");
+
+    if (ImGui::Button("Radial Infall", ImVec2(-1, 0))) {
+        particleSystem_.addRadialInfall(infallRadius, metric);
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Particle falls straight into black hole\nShows time dilation and spaghettification!");
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+
+    // Controls
+    if (count > 0) {
+        if (ImGui::Button("Clear All Trajectories", ImVec2(-1, 0))) {
+            particleSystem_.clear();
+        }
+    }
+
+    ImGui::Spacing();
+
+    // Physics info
+    ImGui::Separator();
+    ImGui::Text("Critical Radii:");
+    ImGui::Text("  Event horizon: %.2f M", metric->eventHorizonRadius());
+    ImGui::Text("  Photon sphere: %.2f M", photonSphere);
+    ImGui::Text("  ISCO: %.2f M", isco);
 
     ImGui::End();
 }

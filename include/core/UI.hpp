@@ -5,6 +5,7 @@
 #include "../rendering/Renderer.hpp"
 #include "../cosmic/BlackHolePresets.hpp"
 #include "../tools/MeasurementTools.hpp"
+#include "../tools/ParticleTrajectory.hpp"
 #include <memory>
 #include <string>
 
@@ -167,6 +168,12 @@ public:
     tools::MeasurementTools& getMeasurementTools() { return measurementTools_; }
     const tools::MeasurementTools& getMeasurementTools() const { return measurementTools_; }
 
+    /**
+     * @brief Get particle system
+     */
+    tools::ParticleSystem& getParticleSystem() { return particleSystem_; }
+    const tools::ParticleSystem& getParticleSystem() const { return particleSystem_; }
+
 private:
     GLFWwindow* window_;
     bool visible_;
@@ -203,6 +210,9 @@ private:
     // Measurement tools
     tools::MeasurementTools measurementTools_;
 
+    // Particle trajectory system
+    tools::ParticleSystem particleSystem_;
+
     // Demo window
     bool showDemoWindow_;
 
@@ -232,6 +242,11 @@ private:
      * @brief Render measurement tools panel
      */
     void renderMeasurementPanel(physics::Metric* metric);
+
+    /**
+     * @brief Render particle trajectory panel
+     */
+    void renderParticlePanel(physics::Metric* metric);
 
     /**
      * @brief Cleanup ImGui resources
