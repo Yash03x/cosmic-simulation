@@ -793,6 +793,64 @@ void UI::renderParticlePanel(physics::Metric* metric) {
 
     ImGui::Spacing();
     ImGui::Separator();
+    ImGui::Text("Photon Paths (Light Rays):");
+
+    static float photonStartRadius = 15.0f;
+    static float photonAngle = 45.0f;
+
+    ImGui::SliderFloat("Launch Radius", &photonStartRadius, static_cast<float>(isco), 40.0f, "%.1f M");
+    ImGui::SliderFloat("Launch Angle", &photonAngle, -90.0f, 90.0f, "%.1f°");
+
+    if (ImGui::Button("Launch Photon (Tangential)", ImVec2(-1, 0))) {
+        // Photon moving tangentially
+        ParticleInitialConditions ic;
+        float theta = glm::radians(photonAngle);
+        ic.position = glm::vec3(photonStartRadius * cos(theta), 0.0f, photonStartRadius * sin(theta));
+        ic.velocity = glm::normalize(glm::vec3(-sin(theta), 0.0f, cos(theta)));  // Tangent direction
+        ic.isMassive = false;  // Photon!
+        ic.energy = 1.0f;
+        ic.angularMomentum = photonStartRadius;
+        particleSystem_.addParticle(ic, metric);
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Launch a photon tangent to the circle\nShows gravitational lensing!");
+    }
+
+    if (ImGui::Button("Launch Photon (Radial)", ImVec2(-1, 0))) {
+        // Photon moving radially inward
+        ParticleInitialConditions ic;
+        float theta = glm::radians(photonAngle);
+        ic.position = glm::vec3(photonStartRadius * cos(theta), 0.0f, photonStartRadius * sin(theta));
+        ic.velocity = -glm::normalize(ic.position);  // Inward
+        ic.isMassive = false;  // Photon!
+        ic.energy = 1.0f;
+        ic.angularMomentum = 0.0f;
+        particleSystem_.addParticle(ic, metric);
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Launch a photon directly toward black hole\nDemonstrates light capture!");
+    }
+
+    if (ImGui::Button("Photon Ring (Multiple Rays)", ImVec2(-1, 0))) {
+        // Launch multiple photons in a ring pattern
+        int numPhotons = 12;
+        for (int i = 0; i < numPhotons; i++) {
+            float angle = (2.0f * glm::pi<float>() * i) / numPhotons;
+            ParticleInitialConditions ic;
+            ic.position = glm::vec3(photonStartRadius * cos(angle), 0.0f, photonStartRadius * sin(angle));
+            ic.velocity = glm::normalize(glm::vec3(-sin(angle), 0.1f, cos(angle)));  // Slight inward component
+            ic.isMassive = false;
+            ic.energy = 1.0f;
+            ic.angularMomentum = photonStartRadius * 0.9f;
+            particleSystem_.addParticle(ic, metric);
+        }
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Launch 12 photons in a ring pattern\nBeautiful gravitational lensing!");
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
 
     // Controls
     if (count > 0) {
