@@ -99,6 +99,9 @@ void UI::render(rendering::Camera& camera,
     // Render statistics panel
     renderStatsPanel(camera, metric, deltaTime, fps, activePresetNumber, activePresetDescription);
 
+    // Render measurement tools panel
+    renderMeasurementPanel(metric);
+
     // Render about panel
     renderAboutPanel();
 
@@ -529,6 +532,165 @@ void UI::renderAboutPanel() {
 
         ImGui::End();
     }
+}
+
+void UI::renderMeasurementPanel(physics::Metric* metric) {
+    ImGui::SetNextWindowPos(ImVec2(10, 650), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(350, 300), ImGuiCond_FirstUseEver);
+
+    ImGui::Begin("Measurement Tools", nullptr, ImGuiWindowFlags_None);
+
+    ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "Measure physical quantities");
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Measurement mode toggle
+    bool active = measurementTools_.isActive();
+    if (ImGui::Checkbox("Measurement Mode Active", &active)) {
+        measurementTools_.setActive(active);
+    }
+
+    if (!active) {
+        ImGui::TextDisabled("Enable to start measuring");
+        ImGui::End();
+        return;
+    }
+
+    ImGui::Spacing();
+
+    // Mode selection
+    ImGui::Text("Measurement Type:");
+    int modeIndex = static_cast<int>(measurementTools_.getMode());
+    const char* modes[] = {"Distance", "Angle", "Redshift"};
+
+    if (ImGui::Combo("Mode", &modeIndex, modes, 3)) {
+        measurementTools_.setMode(static_cast<tools::MeasurementTools::Mode>(modeIndex));
+        measurementTools_.clear();  // Clear points when changing mode
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Mode description
+    switch (measurementTools_.getMode()) {
+        case tools::MeasurementTools::Mode::Distance:
+            ImGui::TextWrapped("Click 'Add Point' twice to measure distance between two points.");
+            ImGui::Text("Points needed: 2");
+            break;
+        case tools::MeasurementTools::Mode::Angle:
+            ImGui::TextWrapped("Add 3 points: vertex, then two rays to measure angle.");
+            ImGui::Text("Points needed: 3");
+            break;
+        case tools::MeasurementTools::Mode::Redshift:
+            ImGui::TextWrapped("Add 2 points: observer position, then emission point.");
+            ImGui::Text("Points needed: 2");
+            break;
+    }
+
+    ImGui::Spacing();
+
+    // Current points
+    size_t pointCount = measurementTools_.getPointCount();
+    ImGui::Text("Current points: %zu", pointCount);
+
+    // Controls
+    ImGui::Spacing();
+    if (ImGui::Button("Add Point (at origin)")) {
+        // In a full implementation, this would use ray casting from mouse
+        // For now, add points at predefined locations for demonstration
+        static float radius = 10.0f;
+        static float angle = 0.0f;
+        glm::vec3 pos(radius * cos(angle), 0.0f, radius * sin(angle));
+        measurementTools_.addPoint(pos);
+        angle += glm::pi<float>() / 4.0f;  // 45 degrees
+        radius += 2.0f;
+    }
+
+    ImGui::SameLine();
+    if (ImGui::Button("Clear All")) {
+        measurementTools_.clear();
+    }
+
+    if (pointCount > 0 && ImGui::Button("Remove Last")) {
+        measurementTools_.removeLastPoint();
+    }
+
+    // Complete measurement button
+    ImGui::Spacing();
+    bool canComplete = false;
+    switch (measurementTools_.getMode()) {
+        case tools::MeasurementTools::Mode::Distance:
+        case tools::MeasurementTools::Mode::Redshift:
+            canComplete = (pointCount >= 2);
+            break;
+        case tools::MeasurementTools::Mode::Angle:
+            canComplete = (pointCount >= 3);
+            break;
+    }
+
+    if (canComplete) {
+        if (ImGui::Button("Complete Measurement", ImVec2(-1, 0))) {
+            measurementTools_.completeMeasurement(metric);
+        }
+    }
+
+    // Display current measurement (live preview)
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Text("Live Preview:");
+
+    if (pointCount >= 2) {
+        switch (measurementTools_.getMode()) {
+            case tools::MeasurementTools::Mode::Distance: {
+                auto result = measurementTools_.measureDistance(metric);
+                if (result) {
+                    ImGui::Text("Flat distance: %.3f M", result->euclideanDistance);
+                    ImGui::Text("Proper distance: %.3f M", result->properDistance);
+                }
+                break;
+            }
+            case tools::MeasurementTools::Mode::Redshift: {
+                auto result = measurementTools_.measureRedshift(metric);
+                if (result) {
+                    ImGui::Text("Redshift z: %.4f", result->gravitationalRedshift);
+                    ImGui::Text("Time dilation: %.3fx", result->timeDialation);
+                    ImGui::Text("Escape velocity: %.2f%% c", result->escapeVelocity * 100.0f);
+                }
+                break;
+            }
+            default:
+                break;
+        }
+    }
+
+    if (pointCount >= 3 && measurementTools_.getMode() == tools::MeasurementTools::Mode::Angle) {
+        auto result = measurementTools_.measureAngle();
+        if (result) {
+            ImGui::Text("Angle: %.2f°", result->angleDegrees);
+        }
+    }
+
+    // Display completed measurements
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Text("Completed Measurements:");
+
+    const auto& distances = measurementTools_.getDistanceMeasurements();
+    const auto& angles = measurementTools_.getAngleMeasurements();
+    const auto& redshifts = measurementTools_.getRedshiftMeasurements();
+
+    if (!distances.empty()) {
+        ImGui::Text("Distances: %zu", distances.size());
+    }
+    if (!angles.empty()) {
+        ImGui::Text("Angles: %zu", angles.size());
+    }
+    if (!redshifts.empty()) {
+        ImGui::Text("Redshifts: %zu", redshifts.size());
+    }
+
+    ImGui::End();
 }
 
 void UI::endFrame() {

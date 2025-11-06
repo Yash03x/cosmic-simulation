@@ -4,6 +4,7 @@
 #include "../rendering/Camera.hpp"
 #include "../rendering/Renderer.hpp"
 #include "../cosmic/BlackHolePresets.hpp"
+#include "../tools/MeasurementTools.hpp"
 #include <memory>
 #include <string>
 
@@ -160,6 +161,12 @@ public:
      */
     bool isPaused() const { return paused_; }
 
+    /**
+     * @brief Get measurement tools
+     */
+    tools::MeasurementTools& getMeasurementTools() { return measurementTools_; }
+    const tools::MeasurementTools& getMeasurementTools() const { return measurementTools_; }
+
 private:
     GLFWwindow* window_;
     bool visible_;
@@ -193,6 +200,9 @@ private:
     float timeScale_;
     bool paused_;
 
+    // Measurement tools
+    tools::MeasurementTools measurementTools_;
+
     // Demo window
     bool showDemoWindow_;
 
@@ -217,6 +227,11 @@ private:
      * @brief Render about panel
      */
     void renderAboutPanel();
+
+    /**
+     * @brief Render measurement tools panel
+     */
+    void renderMeasurementPanel(physics::Metric* metric);
 
     /**
      * @brief Cleanup ImGui resources

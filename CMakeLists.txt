@@ -65,6 +65,7 @@ set(SOURCES
     src/rendering/Camera.cpp
     src/rendering/Shader.cpp
     src/rendering/Renderer.cpp
+    src/tools/MeasurementTools.cpp
 )
 
 # Header files
@@ -80,6 +81,7 @@ set(HEADERS
     include/physics/Kerr.hpp
     include/physics/Geodesic.hpp
     include/utils/Constants.hpp
+    include/tools/MeasurementTools.hpp
 )
 
 # Main executable
