@@ -57,6 +57,8 @@ make
 
 **Interface:**
 - `H` - Toggle UI
+- `P` - Print statistics
+- `F12` - Save screenshot
 - `ESC` - Quit
 
 **Try This:**
@@ -285,19 +287,51 @@ cosmic-simulation/
 
 ---
 
+## 🔬 Interactive Physics Tools
+
+### ✅ Time Controls
+- **Play/Pause** - Freeze simulation time
+- **Time Scale** - Speed up (10x) or slow down (0.1x)
+- **Reset** - Return to normal time
+
+### ✅ Screenshot Capture
+- **F12 Key** - Save timestamped PNG screenshots
+- Full resolution capture
+- Automatic filename generation
+
+### ✅ Measurement Tools
+- **Distance Measurements** - Euclidean vs proper (curved spacetime)
+- **Angle Measurements** - Angular separations in curved geometry
+- **Gravitational Redshift** - z, time dilation, escape velocity
+- Live preview and completed measurements history
+
+### ✅ Particle Trajectories
+- **Circular Orbits** - Stable, ISCO, photon sphere orbits
+- **Elliptical Orbits** - Configurable periapsis/apoapsis
+- **Radial Infall** - Watch spaghettification in action
+- **RK4 Geodesic Integration** - Numerically accurate paths
+- Real-time trajectory evolution with physics-accurate motion
+
+### ✅ Photon Ray Paths
+- **Gravitational Lensing** - Watch light bend around black holes
+- **Tangential Launch** - Photons moving tangent to circles
+- **Radial Launch** - Photons diving into the event horizon
+- **Photon Ring** - 12 simultaneous light rays for dramatic lensing
+- Einstein rings and multiple imaging effects
+
 ## 🚀 Future Expansion
 
-The framework supports (not yet rendered):
+Planned features for upcoming versions:
 - Neutron stars with visible surface
 - Pulsars with rotating beams
-- Particle trajectory systems
-- Photon path visualization
-- Gravitational wave ripples
+- Gravitational wave ripples animation
 - Binary black hole mergers
-- Time controls (speed/slow/reverse)
-- Screenshot/video capture
+- Electromagnetic field visualization
+- Hawking radiation effects
+- VR support (OpenXR)
+- Video recording (FFmpeg integration)
 
-**Current version is production-ready and feature-complete for solo black holes!**
+**Current version includes production-ready interactive physics tools!**
 
 ---
 
@@ -342,6 +376,7 @@ The framework supports (not yet rendered):
 ✅ **Cinematic Quality** - Bloom + HDR + ACES tone mapping
 ✅ **Physics Validated** - All equations from peer review
 ✅ **Production Ready** - Zero placeholders, all features working
+✅ **Interactive Tools** - Measurements, trajectories, photon paths
 ✅ **60 FPS Target** - Optimized for M4 Max
 ✅ **Open Source** - MIT license, free for education
 
