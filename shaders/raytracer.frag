@@ -29,6 +29,7 @@ uniform float uStepSize;
 uniform bool uAccretionDiskEnabled;
 uniform bool uJetsEnabled;
 uniform bool uErgosphereVisible;
+uniform bool uTidalForcesVisible;
 
 // Accretion disk physics parameters
 uniform float uAccretionRate;      // Mdot in solar masses per year
@@ -975,6 +976,96 @@ vec3 ergosphereBoundary(vec3 pos, float r, float theta, vec3 baseColor) {
     return baseColor;
 }
 
+// PHYSICS: Tidal force visualization (spaghettification)
+// Tidal acceleration: a_tidal = 2GM/r³ (for object of size 1M)
+vec3 tidalForceZones(float r, vec3 baseColor) {
+    if (!uTidalForcesVisible) return baseColor;
+
+    float M = uBlackHoleMass;
+    float rs = uEventHorizon;
+
+    // Calculate tidal acceleration: a = 2GM/r³
+    // In geometric units (G=1, c=1): a = 2M/r³
+    float tidalAccel = 2.0 * M / (r * r * r);
+
+    // Different materials can withstand different tidal forces
+    // These are the radii where various objects get torn apart
+
+    // Human body (~2m tall): survives ~10 g's of differential force
+    // For M=1 solar mass: r_human ≈ 10,000 km ≈ 6800 M
+    // For stellar-mass BH: humans die outside event horizon
+    // For supermassive BH: can cross horizon comfortably
+    float r_human = pow(2.0 * M / 10.0, 1.0/3.0) * 100.0;
+
+    // Rocky asteroid: tensile strength ~10 MPa
+    // Can survive much closer
+    float r_rock = pow(2.0 * M / 100.0, 1.0/3.0) * 50.0;
+
+    // Iron/steel structures: tensile strength ~400 MPa
+    // Even more resilient
+    float r_steel = pow(2.0 * M / 1000.0, 1.0/3.0) * 20.0;
+
+    // Neutron star matter: incredibly strong
+    // Can get very close before disruption
+    float r_neutron = pow(2.0 * M / 1e6, 1.0/3.0) * 3.0;
+
+    // ===== DANGER ZONE VISUALIZATION =====
+
+    vec3 resultColor = baseColor;
+
+    // Zone 1: Extreme danger - even steel gets torn apart (red)
+    if (r < r_steel && r > rs) {
+        float intensity = 0.4 * (1.0 - (r - rs) / (r_steel - rs));
+        // Pulsing warning
+        intensity *= 0.7 + 0.3 * sin(uTime * 5.0);
+        // Radial streaks showing stretching direction
+        float streaks = abs(sin(atan(baseColor.r, baseColor.g) * 20.0));
+        intensity *= (0.5 + 0.5 * streaks);
+        vec3 dangerColor = vec3(1.0, 0.0, 0.0); // Bright red
+        resultColor = mix(resultColor, dangerColor, intensity);
+    }
+
+    // Zone 2: High danger - rocks torn apart (orange)
+    else if (r < r_rock && r > rs) {
+        float intensity = 0.3 * (1.0 - (r - rs) / (r_rock - rs));
+        intensity *= 0.8 + 0.2 * sin(uTime * 3.0);
+        vec3 warnColor = vec3(1.0, 0.5, 0.0); // Orange
+        resultColor = mix(resultColor, warnColor, intensity);
+    }
+
+    // Zone 3: Moderate danger - humans don't survive (yellow)
+    else if (r < r_human && r > rs) {
+        float intensity = 0.2 * (1.0 - (r - rs) / (r_human - rs));
+        intensity *= 0.9 + 0.1 * sin(uTime * 2.0);
+        vec3 cautionColor = vec3(1.0, 1.0, 0.0); // Yellow
+        resultColor = mix(resultColor, cautionColor, intensity);
+    }
+
+    // Show field lines indicating stretching direction
+    // More visible in extreme zones
+    if (r < r_steel * 1.5 && r > rs) {
+        float fieldLine = abs(sin(r * 10.0 + uTime));
+        if (fieldLine > 0.95) {
+            float intensity = (fieldLine - 0.95) / 0.05;
+            vec3 fieldColor = vec3(1.0, 0.2, 0.2);
+            resultColor = mix(resultColor, fieldColor, intensity * 0.5);
+        }
+    }
+
+    // Radial gradient showing force strength
+    if (r < r_human * 2.0 && r > rs) {
+        // Log scale for tidal force display
+        float forceVis = log(tidalAccel + 1.0) * 0.1;
+        forceVis = clamp(forceVis, 0.0, 0.3);
+
+        // Color shifts from yellow (weak) to red (strong)
+        vec3 forceColor = mix(vec3(0.5, 0.5, 0.0), vec3(0.8, 0.0, 0.0), forceVis * 3.0);
+        resultColor += forceColor * forceVis * 0.5;
+    }
+
+    return resultColor;
+}
+
 vec3 traceRay(vec3 origin, vec3 dir) {
     vec3 spherical = cartesianToSpherical(origin);
 
@@ -1048,6 +1139,9 @@ vec3 traceRay(vec3 origin, vec3 dir) {
             vec3 posCartesian = sphericalToCartesian(vec3(state.position.y, state.position.z, state.position.w));
             finalColor = ergosphereBoundary(posCartesian, state.position.y, state.position.z, finalColor);
 
+            // Apply tidal force visualization
+            finalColor = tidalForceZones(state.position.y, finalColor);
+
             return finalColor;
         }
 
@@ -1120,6 +1214,9 @@ vec3 traceRay(vec3 origin, vec3 dir) {
     // Apply ergosphere visualization
     vec3 posCartesian = sphericalToCartesian(vec3(state.position.y, state.position.z, state.position.w));
     fallback = ergosphereBoundary(posCartesian, state.position.y, state.position.z, fallback);
+
+    // Apply tidal force visualization
+    fallback = tidalForceZones(state.position.y, fallback);
 
     return fallback;
 }

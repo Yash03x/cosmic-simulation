@@ -121,6 +121,18 @@ public:
     bool isErgosphereVisible() const { return ergosphereVisible_; }
 
     /**
+     * @brief Enable/disable tidal force visualization
+     * @param enable True to enable
+     */
+    void setTidalForcesVisible(bool enable) { tidalForcesVisible_ = enable; }
+
+    /**
+     * @brief Check if tidal forces are visible
+     * @return True if visible
+     */
+    bool isTidalForcesVisible() const { return tidalForcesVisible_; }
+
+    /**
      * @brief Set accretion rate (Mdot in solar masses per year)
      * @param rate Accretion rate (typical: 0.01 - 1.0)
      */
@@ -255,6 +267,7 @@ private:
     bool accretionDiskEnabled_;
     bool jetsEnabled_;
     bool ergosphereVisible_;
+    bool tidalForcesVisible_;
     glm::vec3 backgroundColor_;
 
     // Post-processing parameters
