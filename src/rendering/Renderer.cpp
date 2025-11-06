@@ -19,6 +19,7 @@ Renderer::Renderer(int width, int height)
       stepSize_(0.1f),
       accretionDiskEnabled_(false),
       jetsEnabled_(false),         // Jets disabled by default (enable with UI)
+      ergosphereVisible_(false),   // Ergosphere hidden by default (toggle in UI)
       backgroundColor_(0.0f, 0.0f, 0.0f),
       bloomEnabled_(true),         // Enable bloom by default
       bloomIntensity_(0.6f),       // Moderate bloom
@@ -123,6 +124,7 @@ void Renderer::render(const Camera& camera,
     rayTracerShader_.setFloat("uStepSize", stepSize_);
     rayTracerShader_.setBool("uAccretionDiskEnabled", accretionDiskEnabled_);
     rayTracerShader_.setBool("uJetsEnabled", jetsEnabled_);
+    rayTracerShader_.setBool("uErgosphereVisible", ergosphereVisible_);
 
     // Accretion disk physics parameters
     rayTracerShader_.setFloat("uAccretionRate", accretionRate_);

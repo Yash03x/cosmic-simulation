@@ -28,6 +28,7 @@ uniform int uMaxSteps;
 uniform float uStepSize;
 uniform bool uAccretionDiskEnabled;
 uniform bool uJetsEnabled;
+uniform bool uErgosphereVisible;
 
 // Accretion disk physics parameters
 uniform float uAccretionRate;      // Mdot in solar masses per year
@@ -900,6 +901,80 @@ vec3 relativisticJet(vec3 pos,
     return jetColor * intensity;
 }
 
+// PHYSICS: Ergosphere boundary visualization
+// The ergosphere is where frame-dragging is so extreme that nothing can remain stationary
+vec3 ergosphereBoundary(vec3 pos, float r, float theta, vec3 baseColor) {
+    if (!uErgosphereVisible) return baseColor;
+    if (abs(uSpin) < 0.01) return baseColor; // No ergosphere for non-rotating
+
+    float M = uBlackHoleMass;
+    float a = uSpin * M;
+    float cos_theta = cos(theta);
+
+    // Event horizon radius (inner boundary): r_- = M - √(M² - a²)
+    float r_minus = M - sqrt(max(M * M - a * a, 0.0));
+
+    // Ergosphere outer boundary: r_ergo = M + √(M² - a²cos²θ)
+    // This is the "stationary limit" surface
+    float r_ergo = M + sqrt(max(M * M - a * a * cos_theta * cos_theta, 0.0));
+
+    // Check if we're near the ergosphere boundary
+    float distToErgo = abs(r - r_ergo);
+
+    // ===== VISUALIZATION OPTIONS =====
+
+    // Option 1: Wireframe grid on the surface
+    if (distToErgo < 0.05) {
+        // Create lat/long grid
+        float gridPhi = mod(atan(pos.y, pos.x) * 8.0, TWO_PI);
+        float gridTheta = mod(theta * 12.0, PI);
+
+        bool isGridLine = (gridPhi < 0.15 || gridPhi > TWO_PI - 0.15) ||
+                          (gridTheta < 0.05 || gridTheta > PI - 0.05);
+
+        if (isGridLine) {
+            // Cyan/blue glow for ergosphere
+            vec3 ergoColor = vec3(0.0, 0.8, 1.0);
+            float alpha = (0.05 - distToErgo) / 0.05;
+            return mix(baseColor, ergoColor, alpha * 0.6);
+        }
+    }
+
+    // Option 2: Translucent shell showing the region
+    if (r > r_minus && r < r_ergo + 0.3) {
+        float depthInErgo = (r - r_minus) / (r_ergo - r_minus + 0.3);
+
+        // Pulsing effect to show frame-dragging
+        float pulse = 0.5 + 0.5 * sin(uTime * 2.0 + r * 5.0);
+
+        // Color shifts from blue (outer) to red (near horizon)
+        vec3 ergoColor = mix(vec3(0.2, 0.6, 1.0), vec3(1.0, 0.4, 0.2), 1.0 - depthInErgo);
+
+        // Swirling pattern showing frame-dragging direction
+        float swirl = sin(atan(pos.y, pos.x) * 6.0 - uTime * 3.0 * sign(uSpin) + r * 2.0);
+        swirl = swirl * 0.5 + 0.5;
+
+        // Intensity increases near the boundary
+        float intensity = 0.1 * pulse * swirl * (1.0 - depthInErgo) * 0.5;
+
+        return mix(baseColor, ergoColor, intensity);
+    }
+
+    // Option 3: Highlight the exact boundary surface
+    if (distToErgo < 0.02) {
+        vec3 boundaryColor = vec3(0.0, 1.0, 1.0); // Bright cyan
+        float alpha = (0.02 - distToErgo) / 0.02;
+
+        // Animated ring around the boundary
+        float ringPattern = sin(atan(pos.y, pos.x) * 12.0 - uTime * 5.0);
+        ringPattern = ringPattern * 0.5 + 0.5;
+
+        return mix(baseColor, boundaryColor, alpha * ringPattern * 0.8);
+    }
+
+    return baseColor;
+}
+
 vec3 traceRay(vec3 origin, vec3 dir) {
     vec3 spherical = cartesianToSpherical(origin);
 
@@ -968,6 +1043,11 @@ vec3 traceRay(vec3 origin, vec3 dir) {
             finalColor = mix(finalColor, accumulatedDisk, diskAlpha);
             finalColor = mix(finalColor, accumulatedJet, jetAlpha);
             finalColor = photonSphereGlow(rCurrent, closestApproach, finalColor);
+
+            // Apply ergosphere visualization to the final color
+            vec3 posCartesian = sphericalToCartesian(vec3(state.position.y, state.position.z, state.position.w));
+            finalColor = ergosphereBoundary(posCartesian, state.position.y, state.position.z, finalColor);
+
             return finalColor;
         }
 
@@ -1035,7 +1115,13 @@ vec3 traceRay(vec3 origin, vec3 dir) {
     vec3 fallback = fallbackSky;
     fallback = mix(fallback, accumulatedDisk, diskAlpha);
     fallback = mix(fallback, accumulatedJet, jetAlpha);
-    return photonSphereGlow(state.position.y, closestApproach, fallback);
+    fallback = photonSphereGlow(state.position.y, closestApproach, fallback);
+
+    // Apply ergosphere visualization
+    vec3 posCartesian = sphericalToCartesian(vec3(state.position.y, state.position.z, state.position.w));
+    fallback = ergosphereBoundary(posCartesian, state.position.y, state.position.z, fallback);
+
+    return fallback;
 }
 
 void main() {

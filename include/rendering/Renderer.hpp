@@ -109,6 +109,18 @@ public:
     bool isJetsEnabled() const { return jetsEnabled_; }
 
     /**
+     * @brief Enable/disable ergosphere visualization
+     * @param enable True to enable
+     */
+    void setErgosphereVisible(bool enable) { ergosphereVisible_ = enable; }
+
+    /**
+     * @brief Check if ergosphere is visible
+     * @return True if visible
+     */
+    bool isErgosphereVisible() const { return ergosphereVisible_; }
+
+    /**
      * @brief Set accretion rate (Mdot in solar masses per year)
      * @param rate Accretion rate (typical: 0.01 - 1.0)
      */
@@ -242,6 +254,7 @@ private:
     float stepSize_;
     bool accretionDiskEnabled_;
     bool jetsEnabled_;
+    bool ergosphereVisible_;
     glm::vec3 backgroundColor_;
 
     // Post-processing parameters
