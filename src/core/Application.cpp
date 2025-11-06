@@ -3,6 +3,11 @@
 #include "physics/Kerr.hpp"
 #include <iostream>
 #include <iomanip>
+#include <ctime>
+#include <sstream>
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "../../external/stb/stb_image_write.h"
 
 namespace cosmic {
 namespace core {
@@ -275,6 +280,17 @@ void Application::processInput(float deltaTime) {
     } else {
         pKeyWasPressed = false;
     }
+
+    // Screenshot with F12 key
+    static bool f12KeyWasPressed = false;
+    if (window_->isKeyPressed(GLFW_KEY_F12)) {
+        if (!f12KeyWasPressed) {
+            saveScreenshot();
+            f12KeyWasPressed = true;
+        }
+    } else {
+        f12KeyWasPressed = false;
+    }
 }
 
 void Application::updateTiming() {
@@ -313,6 +329,7 @@ void Application::printControls() {
     std::cout << "  TAB        - Toggle mouse capture\n";
     std::cout << "  H          - Toggle UI\n";
     std::cout << "  P          - Print statistics\n";
+    std::cout << "  F12        - Save screenshot\n";
     std::cout << "  1-9        - Camera presets (instant teleport!)\n";
     std::cout << "  ESC        - Exit\n";
     std::cout << "\n";
@@ -383,6 +400,47 @@ void Application::initializePresets() {
     cameraPresets_.push_back({glm::vec3(0.0f, 8.0f, 0.0f), -90.0f, -90.0f, "Above Disk (Bird's Eye)"});
 
     std::cout << "Camera presets initialized (" << cameraPresets_.size() << " presets)\n";
+}
+
+bool Application::saveScreenshot() {
+    // Get current window dimensions
+    int width = window_->getWidth();
+    int height = window_->getHeight();
+
+    // Allocate buffer for pixel data (RGB, 3 bytes per pixel)
+    std::vector<unsigned char> pixels(width * height * 3);
+
+    // Read pixels from framebuffer
+    glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
+
+    // Flip image vertically (OpenGL has origin at bottom-left)
+    std::vector<unsigned char> flipped(width * height * 3);
+    for (int y = 0; y < height; y++) {
+        memcpy(&flipped[y * width * 3],
+               &pixels[(height - 1 - y) * width * 3],
+               width * 3);
+    }
+
+    // Generate timestamped filename
+    auto now = std::time(nullptr);
+    auto tm = *std::localtime(&now);
+    std::ostringstream oss;
+    oss << "screenshot_"
+        << std::put_time(&tm, "%Y%m%d_%H%M%S")
+        << ".png";
+    std::string filename = oss.str();
+
+    // Save as PNG
+    int result = stbi_write_png(filename.c_str(), width, height, 3,
+                                 flipped.data(), width * 3);
+
+    if (result) {
+        std::cout << "\n✓ Screenshot saved: " << filename << " (" << width << "x" << height << ")\n\n";
+        return true;
+    } else {
+        std::cerr << "\n✗ Failed to save screenshot: " << filename << "\n\n";
+        return false;
+    }
 }
 
 void Application::loadCameraPreset(int presetNumber) {

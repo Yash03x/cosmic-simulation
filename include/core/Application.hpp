@@ -124,6 +124,12 @@ private:
      */
     void initializePresets();
 
+    /**
+     * @brief Save screenshot to file
+     * @return True if successful
+     */
+    bool saveScreenshot();
+
     // Camera presets
     struct CameraPreset {
         glm::vec3 position;
