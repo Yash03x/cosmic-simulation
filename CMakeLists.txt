@@ -50,6 +50,7 @@ add_library(cosmic_physics STATIC
     src/cosmic/CosmicObject.cpp
     src/cosmic/BlackHolePresets.cpp
     src/cosmic/NeutronStar.cpp
+    src/cosmic/Pulsar.cpp
     src/cosmic/GravitationalWaves.cpp
 )
 target_include_directories(cosmic_physics PUBLIC

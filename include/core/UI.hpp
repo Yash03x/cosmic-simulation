@@ -5,6 +5,7 @@
 #include "../rendering/Renderer.hpp"
 #include "../cosmic/BlackHolePresets.hpp"
 #include "../cosmic/NeutronStar.hpp"
+#include "../cosmic/Pulsar.hpp"
 #include "../cosmic/GravitationalWaves.hpp"
 #include "../tools/MeasurementTools.hpp"
 #include "../tools/ParticleTrajectory.hpp"
@@ -188,6 +189,12 @@ public:
     GravitationalWaveSystem& getGravitationalWaveSystem() { return gwSystem_; }
     const GravitationalWaveSystem& getGravitationalWaveSystem() const { return gwSystem_; }
 
+    /**
+     * @brief Get pulsar (if active)
+     */
+    std::shared_ptr<Pulsar> getPulsar() { return pulsar_; }
+    const std::shared_ptr<Pulsar> getPulsar() const { return pulsar_; }
+
 private:
     GLFWwindow* window_;
     bool visible_;
@@ -231,6 +238,9 @@ private:
     std::shared_ptr<NeutronStar> neutronStar_;
     std::vector<NeutronStarProperties> availableNeutronStars_;
     int selectedNeutronStarIndex_;
+
+    // Pulsar (neutron star with beams)
+    std::shared_ptr<Pulsar> pulsar_;
 
     // Gravitational waves
     GravitationalWaveSystem gwSystem_;

@@ -34,6 +34,7 @@ UI::UI(GLFWwindow* window)
       paused_(false),
       neutronStar_(nullptr),
       selectedNeutronStarIndex_(0),
+      pulsar_(nullptr),
       selectedGWEventIndex_(0),
       showDemoWindow_(false) {
     // Load all available presets
@@ -1035,6 +1036,60 @@ void UI::renderNeutronStarPanel() {
         ImGui::Text("Density:");
         ImGui::TextWrapped("A teaspoon of neutron star material weighs ~1 billion tons!");
         ImGui::TextWrapped("That's like compressing Mount Everest into a sugar cube.");
+
+        // Pulsar mode (show beams)
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Text("Pulsar Mode:");
+
+        bool pulsarMode = (pulsar_ != nullptr && pulsar_->areBeamsVisible());
+        if (ImGui::Checkbox("Show Lighthouse Beams", &pulsarMode)) {
+            if (pulsarMode) {
+                // Create pulsar if it doesn't exist
+                if (!pulsar_) {
+                    pulsar_ = std::make_shared<Pulsar>(props);
+                    pulsar_->setPosition(glm::vec3(50.0f, 0.0f, 0.0f));
+                    pulsar_->setVisible(visible);
+                }
+                pulsar_->setBeamsVisible(true);
+            } else {
+                if (pulsar_) {
+                    pulsar_->setBeamsVisible(false);
+                }
+            }
+        }
+
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Show rotating electromagnetic beams\nLighthouse effect from magnetic poles!");
+        }
+
+        if (pulsarMode && pulsar_) {
+            ImGui::Spacing();
+            ImGui::TextColored(ImVec4(0.3f, 1.0f, 1.0f, 1.0f), "✨ Pulsar Active!");
+
+            const auto& beamProps = pulsar_->getBeamProperties();
+            ImGui::BulletText("Pulse frequency: %.1f Hz", beamProps.pulseFrequency);
+
+            if (beamProps.pulseFrequency > 100.0f) {
+                ImGui::SameLine();
+                ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "(Millisecond pulsar!)");
+            }
+
+            ImGui::BulletText("Beam width: %.0f°", beamProps.beamWidth);
+            ImGui::BulletText("Beam length: %.0f M", beamProps.beamLength);
+
+            ImGui::Spacing();
+            float pulseIntensity = pulsar_->getPulseIntensity();
+            ImGui::Text("Current pulse: %.2f", pulseIntensity);
+            ImGui::ProgressBar(pulseIntensity, ImVec2(-1, 0));
+
+            if (pulseIntensity > 0.5f) {
+                ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.3f, 1.0f), "🔆 BEAM VISIBLE!");
+            }
+
+            ImGui::Spacing();
+            ImGui::TextWrapped("Lighthouse Effect: As the neutron star rotates, the beams sweep across space. When a beam points at us, we see a bright pulse!");
+        }
     }
 
     ImGui::End();

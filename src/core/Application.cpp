@@ -163,6 +163,12 @@ void Application::update(float deltaTime) {
         neutronStar->update(deltaTime);
     }
 
+    // Update pulsar (if active)
+    auto pulsar = ui_->getPulsar();
+    if (pulsar && pulsar->isVisible()) {
+        pulsar->update(deltaTime);
+    }
+
     // Update gravitational wave system
     ui_->getGravitationalWaveSystem().update(deltaTime);
 
