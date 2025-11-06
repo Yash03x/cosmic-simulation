@@ -9,6 +9,7 @@
 #include "../cosmic/GravitationalWaves.hpp"
 #include "../tools/MeasurementTools.hpp"
 #include "../tools/ParticleTrajectory.hpp"
+#include "Tutorial.hpp"
 #include <memory>
 #include <string>
 
