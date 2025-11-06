@@ -48,6 +48,7 @@ add_library(cosmic_physics STATIC
     src/physics/Kerr.cpp
     src/physics/Geodesic.cpp
     src/cosmic/CosmicObject.cpp
+    src/cosmic/BlackHolePresets.cpp
 )
 target_include_directories(cosmic_physics PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
