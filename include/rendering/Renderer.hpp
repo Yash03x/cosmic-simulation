@@ -97,6 +97,18 @@ public:
     bool isAccretionDiskEnabled() const { return accretionDiskEnabled_; }
 
     /**
+     * @brief Enable/disable relativistic jets
+     * @param enable True to enable
+     */
+    void setJetsEnabled(bool enable) { jetsEnabled_ = enable; }
+
+    /**
+     * @brief Check if jets are enabled
+     * @return True if enabled
+     */
+    bool isJetsEnabled() const { return jetsEnabled_; }
+
+    /**
      * @brief Set accretion rate (Mdot in solar masses per year)
      * @param rate Accretion rate (typical: 0.01 - 1.0)
      */
@@ -145,6 +157,42 @@ public:
     float getScaleHeightRatio() const { return scaleHeightRatio_; }
 
     /**
+     * @brief Enable/disable bloom effect
+     * @param enable True to enable
+     */
+    void setBloomEnabled(bool enable) { bloomEnabled_ = enable; }
+
+    /**
+     * @brief Check if bloom is enabled
+     * @return True if enabled
+     */
+    bool isBloomEnabled() const { return bloomEnabled_; }
+
+    /**
+     * @brief Set bloom intensity
+     * @param intensity Bloom strength (typical: 0.3 - 1.0)
+     */
+    void setBloomIntensity(float intensity) { bloomIntensity_ = intensity; }
+
+    /**
+     * @brief Get bloom intensity
+     * @return Current bloom intensity
+     */
+    float getBloomIntensity() const { return bloomIntensity_; }
+
+    /**
+     * @brief Set bloom threshold
+     * @param threshold Brightness threshold (typical: 0.8 - 1.2)
+     */
+    void setBloomThreshold(float threshold) { bloomThreshold_ = threshold; }
+
+    /**
+     * @brief Get bloom threshold
+     * @return Current bloom threshold
+     */
+    float getBloomThreshold() const { return bloomThreshold_; }
+
+    /**
      * @brief Set background color
      * @param r Red component (0-1)
      * @param g Green component (0-1)
@@ -172,14 +220,37 @@ private:
     unsigned int quadVAO_;  // Vertex Array Object for fullscreen quad
     unsigned int quadVBO_;  // Vertex Buffer Object
 
-    // Shader program
-    Shader rayTracerShader_;
+    // Framebuffer objects for post-processing
+    unsigned int sceneFBO_;        // Main scene framebuffer
+    unsigned int sceneTexture_;    // Scene color texture
+    unsigned int sceneDepth_;      // Scene depth renderbuffer
+
+    unsigned int brightFBO_;       // Bright pass framebuffer
+    unsigned int brightTexture_;   // Bright regions texture
+
+    unsigned int pingpongFBO_[2];  // Ping-pong framebuffers for blur
+    unsigned int pingpongTextures_[2]; // Ping-pong textures
+
+    // Shader programs
+    Shader rayTracerShader_;       // Main ray tracer
+    Shader brightPassShader_;      // Extract bright regions
+    Shader blurShader_;            // Gaussian blur
+    Shader compositeShader_;       // Final composite
 
     // Rendering parameters
     int maxRaySteps_;
     float stepSize_;
     bool accretionDiskEnabled_;
+    bool jetsEnabled_;
     glm::vec3 backgroundColor_;
+
+    // Post-processing parameters
+    bool bloomEnabled_;
+    float bloomIntensity_;
+    float bloomThreshold_;
+    float bloomSpread_;
+    float exposure_;
+    float gamma_;
 
     // Accretion disk physics parameters
     float accretionRate_;      // Mdot in solar masses per year
@@ -193,6 +264,21 @@ private:
      * @brief Setup fullscreen quad for ray tracing
      */
     void setupQuad();
+
+    /**
+     * @brief Setup framebuffers for post-processing
+     */
+    void setupFramebuffers();
+
+    /**
+     * @brief Resize framebuffers when window changes
+     */
+    void resizeFramebuffers();
+
+    /**
+     * @brief Apply bloom post-processing effect
+     */
+    void applyBloom();
 
     /**
      * @brief Cleanup OpenGL resources

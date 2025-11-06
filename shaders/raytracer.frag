@@ -27,6 +27,7 @@ uniform float uISCO;
 uniform int uMaxSteps;
 uniform float uStepSize;
 uniform bool uAccretionDiskEnabled;
+uniform bool uJetsEnabled;
 
 // Accretion disk physics parameters
 uniform float uAccretionRate;      // Mdot in solar masses per year
@@ -97,14 +98,56 @@ vec3 enhancedStarfield(vec3 dir) {
         color += vec3(0.5, 0.6, 0.7) * 0.3;
     }
 
-    // Milky Way gradient (more pronounced)
-    float gradient = abs(sin(thetaBase * 2.0)) * abs(cos((phiBase - rotation) * 0.5));
-    color += vec3(0.04, 0.05, 0.08) * gradient * 0.6;
+    // ===== MILKY WAY STRUCTURE =====
+    // Galactic plane: band of light across the sky
+    float galacticPlane = abs(sin(thetaBase * 2.0));
+    float galacticDisk = exp(-pow((thetaBase - PI/2.0) / 0.4, 2.0)); // Peak at equator
 
-    // Nebula-like wisps
-    float nebula = abs(sin(thetaBase * 5.0 + (phiBase - rotation) * 3.0 + uTime * 0.5)) *
-                   abs(cos(thetaBase * 3.0));
-    color += vec3(0.02, 0.03, 0.05) * nebula * 0.3;
+    // Milky Way core (brighter center)
+    float distToCore = length(vec2(cos(phiBase - rotation), sin(phiBase - rotation) * 0.5));
+    float core = exp(-distToCore * distToCore * 4.0) * galacticDisk;
+    color += vec3(0.15, 0.12, 0.08) * core;
+
+    // Galactic arms (spiral structure)
+    float armAngle = phiBase - rotation + thetaBase * 3.0;
+    float arm1 = abs(sin(armAngle * 2.0 + uTime * 0.1));
+    float arm2 = abs(sin(armAngle * 2.0 + PI * 0.66 + uTime * 0.1));
+    float arm3 = abs(sin(armAngle * 2.0 + PI * 1.33 + uTime * 0.1));
+    float arms = max(max(arm1, arm2), arm3);
+    arms = pow(arms, 8.0) * galacticDisk; // Sharp spiral arms
+    color += vec3(0.08, 0.09, 0.12) * arms * 0.8;
+
+    // Dust lanes (dark absorption)
+    float dustLane = abs(sin(thetaBase * 4.0 + (phiBase - rotation) * 2.0)) *
+                     abs(cos(phiBase * 3.0 - rotation * 1.5));
+    dustLane = pow(dustLane, 2.0) * galacticDisk;
+    color *= (1.0 - dustLane * 0.3); // Darken where dust is
+
+    // Emission nebulae (H-alpha regions, pink/red)
+    float nebula1 = abs(sin(thetaBase * 6.0 + (phiBase - rotation) * 4.0 + uTime * 0.3)) *
+                    abs(cos(thetaBase * 4.0 - uTime * 0.2));
+    nebula1 = pow(nebula1, 5.0);
+    if (nebula1 > 0.85) {
+        vec3 nebulaColor = vec3(1.0, 0.3, 0.4); // H-alpha emission (red)
+        color += nebulaColor * (nebula1 - 0.85) * 3.0 * galacticDisk;
+    }
+
+    // Reflection nebulae (blue)
+    float nebula2 = abs(sin(thetaBase * 7.0 - (phiBase - rotation) * 3.0 + uTime * 0.25)) *
+                    abs(cos(phiBase * 5.0 + uTime * 0.15));
+    nebula2 = pow(nebula2, 6.0);
+    if (nebula2 > 0.9) {
+        vec3 blueNebula = vec3(0.3, 0.5, 1.0); // Scattered starlight (blue)
+        color += blueNebula * (nebula2 - 0.9) * 2.5 * galacticDisk;
+    }
+
+    // Dark nebula (Barnard's objects - very dark patches)
+    float darkNebula = abs(sin(thetaBase * 5.0 + phiBase * 2.5 - rotation));
+    darkNebula = pow(darkNebula, 10.0) * galacticDisk;
+    color *= (1.0 - darkNebula * 0.6);
+
+    // Overall galactic glow
+    color += vec3(0.03, 0.04, 0.06) * galacticDisk * 0.5;
 
     return color;
 }
@@ -762,6 +805,101 @@ vec3 accretionDisk(vec3 pos,
     return color * intensity * alpha_step;
 }
 
+// PHYSICS: Relativistic jets powered by Blandford-Znajek mechanism
+// Jets are collimated outflows along the rotation axis
+vec3 relativisticJet(vec3 pos,
+                     vec3 rayDir,
+                     float r,
+                     float theta,
+                     float globalTime) {
+    if (!uJetsEnabled) return vec3(0.0);
+    if (abs(uSpin) < 0.1) return vec3(0.0); // Jets require spin
+
+    float M = uBlackHoleMass;
+
+    // Jets launch from near the event horizon
+    float r_jet_base = uEventHorizon * 1.5;
+    float r_jet_max = r_jet_base * 100.0; // Jets extend far
+
+    if (r < r_jet_base || r > r_jet_max) return vec3(0.0);
+
+    // ===== JET GEOMETRY =====
+    // Jets are aligned with black hole's spin axis (z-axis)
+    // Opening angle depends on magnetic field collimation
+    float thetaFromPole = min(theta, PI - theta); // Distance from either pole
+
+    // Opening angle: ~5-15 degrees for well-collimated jets
+    // More collimated closer to the base
+    float collimation = 0.1 + 0.05 * (r - r_jet_base) / r_jet_base;
+    float openingAngle = collimation; // radians
+
+    if (thetaFromPole > openingAngle) return vec3(0.0); // Outside jet cone
+
+    // ===== JET PHYSICS =====
+    // Jet power from Blandford-Znajek: P ∝ a² (black hole spin)
+    // Lorentz factor: γ ~ 10-100 for astrophysical jets
+    float spinFactor = abs(uSpin);
+    float jetPower = spinFactor * spinFactor;
+
+    // Jet velocity (highly relativistic)
+    float beta = 0.9 + 0.09 * spinFactor; // v/c = 0.9 - 0.99
+    float gamma = 1.0 / sqrt(1.0 - beta * beta);
+
+    // ===== INTENSITY PROFILE =====
+    // Brightness decreases with distance (r^-2) and angle from axis
+    float radialFalloff = r_jet_base / r;
+    float angularProfile = exp(-thetaFromPole * thetaFromPole / (openingAngle * openingAngle * 0.1));
+
+    // ===== SYNCHROTRON EMISSION =====
+    // Relativistic electrons spiraling in magnetic fields
+    // Peaks in radio/optical, appears blue-white in visible
+
+    // Magnetic field strength: B ∝ 1/r (dipole-like)
+    float B_field = jetPower / (r / r_jet_base);
+
+    // Synchrotron frequency: ν ∝ γ² B
+    // Higher energy → bluer
+    float synchrotronFreq = gamma * gamma * B_field;
+
+    // Color: Blue-white for high-energy synchrotron
+    vec3 jetColor = vec3(0.7, 0.85, 1.0); // Cool blue-white
+
+    // Add some red at the edges (lower energy electrons)
+    float edgeFactor = thetaFromPole / openingAngle;
+    jetColor = mix(jetColor, vec3(1.0, 0.6, 0.4), edgeFactor * 0.3);
+
+    // ===== TURBULENCE AND KNOTS =====
+    // Jets show instabilities and shock-heated "knots"
+    float z_along_jet = r * cos(thetaFromPole);
+    float turbulence = abs(sin(z_along_jet * 0.5 + globalTime * 2.0)) *
+                       abs(sin(z_along_jet * 1.3 - globalTime * 1.5));
+    turbulence = pow(turbulence, 3.0); // Make knots sharper
+
+    // Shock-heated knots are brighter and redder
+    if (turbulence > 0.6) {
+        jetColor = mix(jetColor, vec3(1.0, 0.9, 0.7), (turbulence - 0.6) * 2.0);
+        angularProfile *= (1.0 + turbulence * 2.0);
+    }
+
+    // ===== RELATIVISTIC BEAMING =====
+    // Jet moving toward us appears much brighter (Doppler beaming)
+    vec3 jetDirection = (theta < PI/2.0) ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 0.0, -1.0);
+    float cosTheta_obs = -dot(normalize(rayDir), jetDirection); // Negative because ray points toward camera
+
+    // Doppler factor: D = 1 / [γ(1 - β cosθ)]
+    float D = 1.0 / max(gamma * (1.0 - beta * cosTheta_obs), 0.01);
+    float beaming = pow(D, 3.0); // I_obs = I_emit × D³
+
+    // Jets pointing toward us are dramatically brighter
+    float directionalBoost = (cosTheta_obs > 0.0) ? (1.0 + beaming * 0.5) : 1.0;
+
+    // ===== FINAL INTENSITY =====
+    float intensity = jetPower * radialFalloff * angularProfile * directionalBoost;
+    intensity = clamp(intensity * 0.3, 0.0, 1.0); // Scale for visibility
+
+    return jetColor * intensity;
+}
+
 vec3 traceRay(vec3 origin, vec3 dir) {
     vec3 spherical = cartesianToSpherical(origin);
 
@@ -805,7 +943,9 @@ vec3 traceRay(vec3 origin, vec3 dir) {
 
     float closestApproach = state.position.y;
     vec3 accumulatedDisk = vec3(0.0);
+    vec3 accumulatedJet = vec3(0.0);
     float diskAlpha = 0.0;
+    float jetAlpha = 0.0;
 
     float baseStepSize = uStepSize;
 
@@ -824,7 +964,9 @@ vec3 traceRay(vec3 origin, vec3 dir) {
         if (rCurrent >= ESCAPE_RADIUS) {
             vec3 skyDir = spatialDirection(state);
             vec3 skyColor = enhancedStarfield(skyDir);
-            vec3 finalColor = mix(skyColor, accumulatedDisk, diskAlpha);
+            vec3 finalColor = skyColor;
+            finalColor = mix(finalColor, accumulatedDisk, diskAlpha);
+            finalColor = mix(finalColor, accumulatedJet, jetAlpha);
             finalColor = photonSphereGlow(rCurrent, closestApproach, finalColor);
             return finalColor;
         }
@@ -862,16 +1004,37 @@ vec3 traceRay(vec3 origin, vec3 dir) {
                 float diskAlphaStep = min(length(diskColor) * 0.5, 1.0);
                 accumulatedDisk += diskColor * (1.0 - diskAlpha);
                 diskAlpha += diskAlphaStep * (1.0 - diskAlpha);
-                if (diskAlpha > 0.99) {
-                    return accumulatedDisk;
-                }
             }
+        }
+
+        // Accumulate jets
+        if (uJetsEnabled) {
+            vec3 jetColor = relativisticJet(posCartesian,
+                                           raySpatialDir,
+                                           state.position.y,
+                                           state.position.z,
+                                           uTime);
+
+            if (length(jetColor) > 0.0) {
+                float jetAlphaStep = min(length(jetColor) * 0.4, 1.0);
+                accumulatedJet += jetColor * (1.0 - jetAlpha);
+                jetAlpha += jetAlphaStep * (1.0 - jetAlpha);
+            }
+        }
+
+        // Early termination if fully opaque
+        if (diskAlpha > 0.99 && jetAlpha > 0.99) {
+            vec3 result = accumulatedDisk * (diskAlpha / (diskAlpha + jetAlpha));
+            result += accumulatedJet * (jetAlpha / (diskAlpha + jetAlpha));
+            return result;
         }
     }
 
     vec3 fallbackDir = spatialDirection(state);
     vec3 fallbackSky = enhancedStarfield(fallbackDir);
-    vec3 fallback = mix(fallbackSky, accumulatedDisk, diskAlpha);
+    vec3 fallback = fallbackSky;
+    fallback = mix(fallback, accumulatedDisk, diskAlpha);
+    fallback = mix(fallback, accumulatedJet, jetAlpha);
     return photonSphereGlow(state.position.y, closestApproach, fallback);
 }
 
@@ -886,17 +1049,9 @@ void main() {
     );
 
     // Trace ray with all enhancements
+    // Output HDR color for post-processing
     vec3 color = traceRay(uCameraPos, rayDir);
 
-    // Simple tone mapping (Reinhard)
-    color = color / (color + vec3(1.0));
-
-    // Gamma correction
-    color = pow(color, vec3(1.0/2.2));
-
-    // Subtle vignette
-    float vignette = 1.0 - length(vScreenPos) * 0.15;
-    color *= vignette;
-
+    // No tone mapping here - done in post-processing
     FragColor = vec4(color, 1.0);
 }
