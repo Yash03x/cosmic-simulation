@@ -4,6 +4,7 @@
 #include "../rendering/Camera.hpp"
 #include "../rendering/Renderer.hpp"
 #include "../cosmic/BlackHolePresets.hpp"
+#include "../cosmic/NeutronStar.hpp"
 #include "../tools/MeasurementTools.hpp"
 #include "../tools/ParticleTrajectory.hpp"
 #include <memory>
@@ -174,6 +175,12 @@ public:
     tools::ParticleSystem& getParticleSystem() { return particleSystem_; }
     const tools::ParticleSystem& getParticleSystem() const { return particleSystem_; }
 
+    /**
+     * @brief Get neutron star (if active)
+     */
+    std::shared_ptr<NeutronStar> getNeutronStar() { return neutronStar_; }
+    const std::shared_ptr<NeutronStar> getNeutronStar() const { return neutronStar_; }
+
 private:
     GLFWwindow* window_;
     bool visible_;
@@ -213,6 +220,11 @@ private:
     // Particle trajectory system
     tools::ParticleSystem particleSystem_;
 
+    // Neutron star
+    std::shared_ptr<NeutronStar> neutronStar_;
+    std::vector<NeutronStarProperties> availableNeutronStars_;
+    int selectedNeutronStarIndex_;
+
     // Demo window
     bool showDemoWindow_;
 
@@ -247,6 +259,11 @@ private:
      * @brief Render particle trajectory panel
      */
     void renderParticlePanel(physics::Metric* metric);
+
+    /**
+     * @brief Render neutron star panel
+     */
+    void renderNeutronStarPanel();
 
     /**
      * @brief Cleanup ImGui resources

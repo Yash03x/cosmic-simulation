@@ -157,6 +157,12 @@ void Application::update(float deltaTime) {
     // Update particle trajectory system
     ui_->getParticleSystem().update(deltaTime);
 
+    // Update neutron star (if active)
+    auto neutronStar = ui_->getNeutronStar();
+    if (neutronStar && neutronStar->isVisible()) {
+        neutronStar->update(deltaTime);
+    }
+
     ui_->resetChangeFlags();
 }
 

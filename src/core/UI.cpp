@@ -32,6 +32,8 @@ UI::UI(GLFWwindow* window)
       presetChanged_(false),
       timeScale_(1.0f),
       paused_(false),
+      neutronStar_(nullptr),
+      selectedNeutronStarIndex_(0),
       showDemoWindow_(false) {
     // Load all available presets
     availablePresets_ = BlackHolePresets::getAllPresets();
@@ -39,6 +41,9 @@ UI::UI(GLFWwindow* window)
     if (!availablePresets_.empty()) {
         selectedPreset_ = availablePresets_[0];
     }
+
+    // Load neutron star presets
+    availableNeutronStars_ = NeutronStarPresets::getAllPresets();
 }
 
 UI::~UI() {
@@ -104,6 +109,9 @@ void UI::render(rendering::Camera& camera,
 
     // Render particle trajectory panel
     renderParticlePanel(metric);
+
+    // Render neutron star panel
+    renderNeutronStarPanel();
 
     // Render about panel
     renderAboutPanel();
@@ -867,6 +875,160 @@ void UI::renderParticlePanel(physics::Metric* metric) {
     ImGui::Text("  Event horizon: %.2f M", metric->eventHorizonRadius());
     ImGui::Text("  Photon sphere: %.2f M", photonSphere);
     ImGui::Text("  ISCO: %.2f M", isco);
+
+    ImGui::End();
+}
+
+void UI::renderNeutronStarPanel() {
+    ImGui::SetNextWindowPos(ImVec2(1530, 430), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(350, 450), ImGuiCond_FirstUseEver);
+
+    ImGui::Begin("Neutron Stars", nullptr, ImGuiWindowFlags_None);
+
+    ImGui::TextColored(ImVec4(0.5f, 0.8f, 1.0f, 1.0f), "Ultra-Dense Compact Objects");
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Neutron star visibility toggle
+    bool visible = (neutronStar_ != nullptr && neutronStar_->isVisible());
+    bool previousVisible = visible;
+
+    if (ImGui::Checkbox("Show Neutron Star", &visible)) {
+        if (visible && !previousVisible) {
+            // Create neutron star if it doesn't exist
+            if (!neutronStar_ && !availableNeutronStars_.empty()) {
+                neutronStar_ = std::make_shared<NeutronStar>(availableNeutronStars_[selectedNeutronStarIndex_]);
+                neutronStar_->setPosition(glm::vec3(50.0f, 0.0f, 0.0f));  // Position to the side
+            }
+            if (neutronStar_) {
+                neutronStar_->setVisible(true);
+            }
+        } else if (!visible && previousVisible) {
+            if (neutronStar_) {
+                neutronStar_->setVisible(false);
+            }
+        }
+    }
+
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Toggle neutron star visibility\nWill appear alongside black hole");
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Preset selection
+    ImGui::Text("Select Neutron Star:");
+
+    std::vector<const char*> nsNames;
+    for (const auto& ns : availableNeutronStars_) {
+        nsNames.push_back(ns.name.c_str());
+    }
+
+    int previousIndex = selectedNeutronStarIndex_;
+    if (ImGui::Combo("##NSPreset", &selectedNeutronStarIndex_, nsNames.data(), nsNames.size())) {
+        if (selectedNeutronStarIndex_ != previousIndex &&
+            selectedNeutronStarIndex_ >= 0 &&
+            selectedNeutronStarIndex_ < static_cast<int>(availableNeutronStars_.size())) {
+
+            // Create new neutron star with selected preset
+            neutronStar_ = std::make_shared<NeutronStar>(availableNeutronStars_[selectedNeutronStarIndex_]);
+            neutronStar_->setPosition(glm::vec3(50.0f, 0.0f, 0.0f));
+            neutronStar_->setVisible(visible);
+        }
+    }
+
+    ImGui::Spacing();
+
+    // Display current neutron star info
+    if (neutronStar_ && selectedNeutronStarIndex_ >= 0 &&
+        selectedNeutronStarIndex_ < static_cast<int>(availableNeutronStars_.size())) {
+
+        const auto& props = availableNeutronStars_[selectedNeutronStarIndex_];
+
+        ImGui::Separator();
+        ImGui::TextWrapped("%s", props.description.c_str());
+        ImGui::Spacing();
+
+        // Physical properties
+        ImGui::Text("Physical Properties:");
+        ImGui::BulletText("Mass: %.2f M☉", props.mass);
+        ImGui::BulletText("Radius: %.1f km", props.radius);
+        ImGui::BulletText("Rotation: %.4f sec", props.rotationPeriod);
+
+        if (props.rotationPeriod < 0.01f) {
+            ImGui::SameLine();
+            ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "(%.0f Hz!)", 1.0f / props.rotationPeriod);
+        }
+
+        ImGui::BulletText("Magnetic Field: %.1e T", props.magneticFieldStrength);
+        ImGui::BulletText("Surface Temp: %.1e K", props.surfaceTemperature);
+
+        ImGui::Spacing();
+
+        // Extreme conditions
+        ImGui::Separator();
+        ImGui::Text("Extreme Conditions:");
+
+        float surfaceGravity = neutronStar_->getSurfaceGravity();
+        ImGui::BulletText("Surface gravity: %.2e g", surfaceGravity);
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("That's %.0f billion times Earth gravity!", surfaceGravity / 1e9f);
+        }
+
+        float surfaceRedshift = neutronStar_->getSurfaceRedshift();
+        ImGui::BulletText("Gravitational redshift: z = %.3f", surfaceRedshift);
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Light leaving surface is shifted to longer wavelengths\nTime dilation factor: %.2fx", 1.0f + surfaceRedshift);
+        }
+
+        float escapeVelocity = std::sqrt(1.0f - 1.0f / ((1.0f + surfaceRedshift) * (1.0f + surfaceRedshift)));
+        ImGui::BulletText("Escape velocity: %.2f%% c", escapeVelocity * 100.0f);
+
+        ImGui::Spacing();
+
+        // Visual features
+        ImGui::Separator();
+        ImGui::Text("Visual Features:");
+        if (props.hasHotspots) {
+            ImGui::BulletText("Magnetic pole hotspots");
+        }
+        if (props.hasMountains) {
+            ImGui::BulletText("Crustal mountains (<5mm!)");
+        }
+        if (props.crustalDeformation > 0.01f) {
+            ImGui::BulletText("Oblate shape (%.1f%% deformation)", props.crustalDeformation * 100.0f);
+        }
+
+        ImGui::Spacing();
+
+        // Fun facts
+        ImGui::Separator();
+        ImGui::Text("Fun Facts:");
+
+        if (props.name.find("PSR J1748") != std::string::npos) {
+            ImGui::BulletText("Spins 716 times per second!");
+            ImGui::BulletText("Surface moving at 24% light speed");
+        } else if (props.name.find("Crab") != std::string::npos) {
+            ImGui::BulletText("Visible supernova from 1054 AD");
+            ImGui::BulletText("Chinese astronomers recorded it");
+        } else if (props.name.find("Magnetar") != std::string::npos) {
+            ImGui::BulletText("Magnetic field tears atoms apart");
+            ImGui::BulletText("Would erase credit cards from 1000 km!");
+        } else if (props.name.find("Tolman") != std::string::npos) {
+            ImGui::BulletText("Any heavier = black hole");
+            ImGui::BulletText("At the edge of stability");
+        }
+
+        ImGui::Spacing();
+
+        // Density comparison
+        ImGui::Separator();
+        ImGui::Text("Density:");
+        ImGui::TextWrapped("A teaspoon of neutron star material weighs ~1 billion tons!");
+        ImGui::TextWrapped("That's like compressing Mount Everest into a sugar cube.");
+    }
 
     ImGui::End();
 }
