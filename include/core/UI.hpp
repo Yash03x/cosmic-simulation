@@ -5,6 +5,7 @@
 #include "../rendering/Renderer.hpp"
 #include "../cosmic/BlackHolePresets.hpp"
 #include "../cosmic/NeutronStar.hpp"
+#include "../cosmic/GravitationalWaves.hpp"
 #include "../tools/MeasurementTools.hpp"
 #include "../tools/ParticleTrajectory.hpp"
 #include <memory>
@@ -181,6 +182,12 @@ public:
     std::shared_ptr<NeutronStar> getNeutronStar() { return neutronStar_; }
     const std::shared_ptr<NeutronStar> getNeutronStar() const { return neutronStar_; }
 
+    /**
+     * @brief Get gravitational wave system
+     */
+    GravitationalWaveSystem& getGravitationalWaveSystem() { return gwSystem_; }
+    const GravitationalWaveSystem& getGravitationalWaveSystem() const { return gwSystem_; }
+
 private:
     GLFWwindow* window_;
     bool visible_;
@@ -225,6 +232,11 @@ private:
     std::vector<NeutronStarProperties> availableNeutronStars_;
     int selectedNeutronStarIndex_;
 
+    // Gravitational waves
+    GravitationalWaveSystem gwSystem_;
+    std::vector<GWEventProperties> availableGWEvents_;
+    int selectedGWEventIndex_;
+
     // Demo window
     bool showDemoWindow_;
 
@@ -264,6 +276,11 @@ private:
      * @brief Render neutron star panel
      */
     void renderNeutronStarPanel();
+
+    /**
+     * @brief Render gravitational wave panel
+     */
+    void renderGravitationalWavePanel();
 
     /**
      * @brief Cleanup ImGui resources
