@@ -105,6 +105,7 @@ void Application::update(float deltaTime) {
     const bool massChanged = ui_->blackHoleMassChanged();
     const bool metricTypeChanged = ui_->metricTypeChanged();
     const bool spinChanged = ui_->spinChanged();
+    const bool presetChanged = ui_->presetChanged();
 
     renderer_->setMetricType(ui_->getMetricType());
     if (ui_->getMetricType() == 0) {
@@ -127,6 +128,25 @@ void Application::update(float deltaTime) {
             std::cout << "Switched to Kerr metric (M=" << mass
                       << ", a/M=" << spin << ")\n";
         }
+    }
+
+    // Handle black hole preset changes
+    if (presetChanged) {
+        const auto& preset = ui_->getSelectedPreset();
+
+        // Update camera to preset's suggested position
+        camera_->setPosition(glm::vec3(0.0f, preset.cameraHeight, preset.cameraDistance));
+        camera_->setYaw(-90.0f);
+        camera_->setPitch(-15.0f);
+
+        std::cout << "\n✓ Loaded Black Hole Preset: " << preset.name << "\n";
+        std::cout << "  " << preset.description << "\n";
+        std::cout << "  Mass: " << preset.mass << " M☉\n";
+        std::cout << "  Spin: " << preset.spin << "\n";
+        if (preset.hasJets) {
+            std::cout << "  Features: Relativistic jets, accretion disk\n";
+        }
+        std::cout << "\n";
     }
 
     ui_->resetChangeFlags();
@@ -263,7 +283,18 @@ void Application::updateTiming() {
         currentTime - lastFrameTime_);
     deltaTime_ = duration.count() / 1000000.0f;  // Convert to seconds
     fps_ = 1.0f / deltaTime_;
-    simulationTime_ += deltaTime_;
+
+    // Apply time scale and pause from UI
+    float effectiveDeltaTime = deltaTime_;
+    if (ui_) {
+        if (ui_->isPaused()) {
+            effectiveDeltaTime = 0.0f;
+        } else {
+            effectiveDeltaTime *= ui_->getTimeScale();
+        }
+    }
+
+    simulationTime_ += effectiveDeltaTime;
     lastFrameTime_ = currentTime;
 }
 

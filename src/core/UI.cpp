@@ -28,7 +28,17 @@ UI::UI(GLFWwindow* window)
       alphaViscosity_(0.1f),
       diskInclination_(1.0f),
       scaleHeightRatio_(0.05f),
+      selectedPresetIndex_(0),
+      presetChanged_(false),
+      timeScale_(1.0f),
+      paused_(false),
       showDemoWindow_(false) {
+    // Load all available presets
+    availablePresets_ = BlackHolePresets::getAllPresets();
+    // Initialize with first preset (M87*)
+    if (!availablePresets_.empty()) {
+        selectedPreset_ = availablePresets_[0];
+    }
 }
 
 UI::~UI() {
@@ -81,6 +91,7 @@ void UI::render(rendering::Camera& camera,
     blackHoleMassChanged_ = false;
     metricTypeChanged_ = false;
     spinChanged_ = false;
+    presetChanged_ = false;
 
     // Render main control panel
     renderControlPanel(camera, metric, renderer);
@@ -105,8 +116,86 @@ void UI::renderControlPanel(rendering::Camera& camera,
 
     ImGui::Begin("Cosmic Simulator Controls", nullptr, ImGuiWindowFlags_None);
 
-    ImGui::Text("Black Hole Simulator");
+    ImGui::Text("Black Hole Simulator v2.0");
     ImGui::Separator();
+
+    // Famous Black Hole Presets
+    if (ImGui::CollapsingHeader("Famous Black Holes", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::Text("Select a preset:");
+
+        // Create array of preset names for combo
+        std::vector<const char*> presetNames;
+        for (const auto& preset : availablePresets_) {
+            presetNames.push_back(preset.name.c_str());
+        }
+
+        int previousIndex = selectedPresetIndex_;
+        if (ImGui::Combo("Preset", &selectedPresetIndex_, presetNames.data(), presetNames.size())) {
+            if (selectedPresetIndex_ != previousIndex && selectedPresetIndex_ >= 0 &&
+                selectedPresetIndex_ < static_cast<int>(availablePresets_.size())) {
+                selectedPreset_ = availablePresets_[selectedPresetIndex_];
+                presetChanged_ = true;
+
+                // Auto-apply preset values
+                blackHoleMass_ = selectedPreset_.mass;
+                blackHoleMassChanged_ = true;
+                spin_ = selectedPreset_.spin;
+                spinChanged_ = true;
+                metricType_ = (std::abs(selectedPreset_.spin) > 0.01f) ? 1 : 0;
+                metricTypeChanged_ = true;
+
+                // Apply accretion and jet settings
+                accretionRate_ = selectedPreset_.accretionRate;
+                renderer.setAccretionRate(accretionRate_);
+                renderer.setJetsEnabled(selectedPreset_.hasJets);
+
+                if (selectedPreset_.accretionRate > 0.001f) {
+                    accretionDiskEnabled_ = true;
+                    renderer.setAccretionDiskEnabled(true);
+                }
+            }
+        }
+
+        // Display description
+        if (selectedPresetIndex_ >= 0 && selectedPresetIndex_ < static_cast<int>(availablePresets_.size())) {
+            ImGui::Spacing();
+            ImGui::TextWrapped("%s", selectedPreset_.description.c_str());
+            ImGui::Spacing();
+            ImGui::Text("Mass: %.2e M☉", selectedPreset_.mass);
+            ImGui::Text("Spin: %.3f", selectedPreset_.spin);
+            ImGui::Text("Distance: %.2f kpc", selectedPreset_.distance);
+            if (selectedPreset_.hasJets) {
+                ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "✓ Relativistic Jets");
+            }
+        }
+    }
+
+    ImGui::Spacing();
+
+    // Time Controls
+    if (ImGui::CollapsingHeader("Time Control", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (ImGui::Button(paused_ ? "▶ Play" : "⏸ Pause")) {
+            paused_ = !paused_;
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button("⏮ Reset")) {
+            timeScale_ = 1.0f;
+            paused_ = false;
+        }
+
+        ImGui::SliderFloat("Speed", &timeScale_, 0.1f, 10.0f, "%.2fx");
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Simulation time scale\n"
+                             "< 1.0 = Slow motion\n"
+                             "> 1.0 = Fast forward");
+        }
+
+        ImGui::Text("Status: %s", paused_ ? "⏸ PAUSED" : "▶ RUNNING");
+        ImGui::Text("Time Scale: %.2fx", timeScale_);
+    }
+
+    ImGui::Spacing();
 
     // Black hole parameters
     if (ImGui::CollapsingHeader("Black Hole Parameters", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -245,17 +334,71 @@ void UI::renderControlPanel(rendering::Camera& camera,
     }
 
     ImGui::Spacing();
-    ImGui::Separator();
 
-    // Presets
-    if (ImGui::Button("Stellar Mass BH (3 M☉)")) {
-        blackHoleMass_ = 3.0f;
-        blackHoleMassChanged_ = true;
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Supermassive BH (10 M☉)")) {
-        blackHoleMass_ = 10.0f;
-        blackHoleMassChanged_ = true;
+    // Advanced Visualizations
+    if (ImGui::CollapsingHeader("Visualizations")) {
+        // Jets
+        bool jetsEnabled = renderer.isJetsEnabled();
+        if (ImGui::Checkbox("Relativistic Jets", &jetsEnabled)) {
+            renderer.setJetsEnabled(jetsEnabled);
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Blandford-Znajek powered jets\n"
+                             "Only visible for spinning black holes\n"
+                             "Velocity: 0.9-0.99c");
+        }
+
+        // Ergosphere
+        bool ergosphereVisible = renderer.isErgosphereVisible();
+        if (ImGui::Checkbox("Ergosphere", &ergosphereVisible)) {
+            renderer.setErgosphereVisible(ergosphereVisible);
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Frame-dragging region (Kerr only)\n"
+                             "Shows where nothing can remain stationary\n"
+                             "Penrose process region");
+        }
+
+        // Tidal Forces
+        bool tidalForces = renderer.isTidalForcesVisible();
+        if (ImGui::Checkbox("Tidal Forces (Spaghettification)", &tidalForces)) {
+            renderer.setTidalForcesVisible(tidalForces);
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Danger zones:\n"
+                             "🔴 Red: Steel torn apart\n"
+                             "🟠 Orange: Rocks disrupted\n"
+                             "🟡 Yellow: Humans don't survive");
+        }
+
+        // Bloom
+        bool bloomEnabled = renderer.isBloomEnabled();
+        if (ImGui::Checkbox("Bloom (HDR Glow)", &bloomEnabled)) {
+            renderer.setBloomEnabled(bloomEnabled);
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Cinematic post-processing\n"
+                             "HDR bloom with ACES tone mapping");
+        }
+
+        if (bloomEnabled) {
+            float bloomIntensity = renderer.getBloomIntensity();
+            if (ImGui::SliderFloat("Bloom Intensity", &bloomIntensity, 0.0f, 2.0f, "%.2f")) {
+                renderer.setBloomIntensity(bloomIntensity);
+            }
+
+            float bloomThreshold = renderer.getBloomThreshold();
+            if (ImGui::SliderFloat("Bloom Threshold", &bloomThreshold, 0.5f, 2.0f, "%.2f")) {
+                renderer.setBloomThreshold(bloomThreshold);
+            }
+        }
+
+        ImGui::Spacing();
+        ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "Active Features:");
+        if (jetsEnabled) ImGui::BulletText("Jets (synchrotron radiation)");
+        if (ergosphereVisible) ImGui::BulletText("Ergosphere boundary");
+        if (tidalForces) ImGui::BulletText("Tidal zones (3 levels)");
+        if (bloomEnabled) ImGui::BulletText("Bloom post-processing");
     }
 
     ImGui::Spacing();

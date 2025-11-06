@@ -3,7 +3,9 @@
 #include "../physics/Metric.hpp"
 #include "../rendering/Camera.hpp"
 #include "../rendering/Renderer.hpp"
+#include "../cosmic/BlackHolePresets.hpp"
 #include <memory>
+#include <string>
 
 // Forward declarations
 struct GLFWwindow;
@@ -135,7 +137,28 @@ public:
         blackHoleMassChanged_ = false;
         metricTypeChanged_ = false;
         spinChanged_ = false;
+        presetChanged_ = false;
     }
+
+    /**
+     * @brief Check if a preset was selected
+     */
+    bool presetChanged() const { return presetChanged_; }
+
+    /**
+     * @brief Get selected preset
+     */
+    const BlackHolePreset& getSelectedPreset() const { return selectedPreset_; }
+
+    /**
+     * @brief Get time scale factor
+     */
+    float getTimeScale() const { return timeScale_; }
+
+    /**
+     * @brief Check if simulation is paused
+     */
+    bool isPaused() const { return paused_; }
 
 private:
     GLFWwindow* window_;
@@ -159,6 +182,16 @@ private:
     float alphaViscosity_;
     float diskInclination_;
     float scaleHeightRatio_;
+
+    // Black hole presets
+    int selectedPresetIndex_;
+    bool presetChanged_;
+    BlackHolePreset selectedPreset_;
+    std::vector<BlackHolePreset> availablePresets_;
+
+    // Time controls
+    float timeScale_;
+    bool paused_;
 
     // Demo window
     bool showDemoWindow_;
