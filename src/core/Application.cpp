@@ -163,6 +163,9 @@ void Application::update(float deltaTime) {
         neutronStar->update(deltaTime);
     }
 
+    // Update gravitational wave system
+    ui_->getGravitationalWaveSystem().update(deltaTime);
+
     ui_->resetChangeFlags();
 }
 

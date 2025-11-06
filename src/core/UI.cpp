@@ -34,6 +34,7 @@ UI::UI(GLFWwindow* window)
       paused_(false),
       neutronStar_(nullptr),
       selectedNeutronStarIndex_(0),
+      selectedGWEventIndex_(0),
       showDemoWindow_(false) {
     // Load all available presets
     availablePresets_ = BlackHolePresets::getAllPresets();
@@ -44,6 +45,9 @@ UI::UI(GLFWwindow* window)
 
     // Load neutron star presets
     availableNeutronStars_ = NeutronStarPresets::getAllPresets();
+
+    // Load gravitational wave events
+    availableGWEvents_ = GravitationalWavePresets::getAllPresets();
 }
 
 UI::~UI() {
@@ -112,6 +116,9 @@ void UI::render(rendering::Camera& camera,
 
     // Render neutron star panel
     renderNeutronStarPanel();
+
+    // Render gravitational wave panel
+    renderGravitationalWavePanel();
 
     // Render about panel
     renderAboutPanel();
@@ -1028,6 +1035,180 @@ void UI::renderNeutronStarPanel() {
         ImGui::Text("Density:");
         ImGui::TextWrapped("A teaspoon of neutron star material weighs ~1 billion tons!");
         ImGui::TextWrapped("That's like compressing Mount Everest into a sugar cube.");
+    }
+
+    ImGui::End();
+}
+
+void UI::renderGravitationalWavePanel() {
+    ImGui::SetNextWindowPos(ImVec2(370, 10), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(380, 500), ImGuiCond_FirstUseEver);
+
+    ImGui::Begin("Gravitational Waves", nullptr, ImGuiWindowFlags_None);
+
+    ImGui::TextColored(ImVec4(0.3f, 1.0f, 1.0f, 1.0f), "Spacetime Ripples from LIGO");
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // System active toggle
+    bool active = gwSystem_.isActive();
+    if (ImGui::Checkbox("Show Gravitational Waves", &active)) {
+        gwSystem_.setActive(active);
+        if (active) {
+            gwSystem_.clear();  // Clear old waves when activating
+        }
+    }
+
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Visualize spacetime ripples\nPropagating at the speed of light!");
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Event selection
+    ImGui::Text("Select LIGO/Virgo Detection:");
+
+    std::vector<const char*> gwNames;
+    for (const auto& event : availableGWEvents_) {
+        gwNames.push_back(event.name.c_str());
+    }
+
+    int previousIndex = selectedGWEventIndex_;
+    if (ImGui::Combo("##GWEvent", &selectedGWEventIndex_, gwNames.data(), gwNames.size())) {
+        if (selectedGWEventIndex_ != previousIndex &&
+            selectedGWEventIndex_ >= 0 &&
+            selectedGWEventIndex_ < static_cast<int>(availableGWEvents_.size())) {
+
+            gwSystem_.setEvent(availableGWEvents_[selectedGWEventIndex_]);
+            gwSystem_.clear();
+        }
+    }
+
+    ImGui::Spacing();
+
+    // Display current event info
+    if (selectedGWEventIndex_ >= 0 &&
+        selectedGWEventIndex_ < static_cast<int>(availableGWEvents_.size())) {
+
+        const auto& event = availableGWEvents_[selectedGWEventIndex_];
+
+        ImGui::Separator();
+        ImGui::TextWrapped("%s", event.description.c_str());
+        ImGui::Spacing();
+
+        ImGui::Text("Detected: %s", event.detectionDate.c_str());
+        ImGui::Spacing();
+
+        // Source properties
+        ImGui::Separator();
+        ImGui::Text("Source Properties:");
+        ImGui::BulletText("Primary mass: %.1f M☉", event.mass1);
+        ImGui::BulletText("Secondary mass: %.1f M☉", event.mass2);
+        ImGui::BulletText("Final mass: %.1f M☉", event.finalMass);
+
+        ImGui::Spacing();
+        ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f),
+                          "Energy radiated: %.1f M☉c²", event.energyRadiated);
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("That's %.0e Joules!\nEquivalent to the Sun's entire mass-energy!",
+                             event.energyRadiated * 1.8e47);
+        }
+
+        ImGui::BulletText("Distance: %.0f Mpc", event.distance);
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Megaparsecs: %.0f million light-years", event.distance * 3.26);
+        }
+
+        ImGui::Spacing();
+
+        // Waveform properties
+        ImGui::Separator();
+        ImGui::Text("Gravitational Wave Properties:");
+        ImGui::BulletText("Peak frequency: %.0f Hz", event.peakFrequency);
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Spacetime oscillates this many times per second!");
+        }
+
+        ImGui::BulletText("Peak strain: %.1e", event.peakStrain);
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Fractional change in distance:\nΔL/L ~ 10^-21\nSmaller than a proton compared to Sun-Earth distance!");
+        }
+
+        ImGui::BulletText("Chirp mass: %.1f M☉", event.chirpMass);
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("M_chirp = (m1·m2)^0.6 / (m1+m2)^0.2\nDetermines frequency evolution");
+        }
+
+        ImGui::BulletText("Observable duration: %.1f sec", event.duration);
+
+        ImGui::Spacing();
+
+        // Event type
+        ImGui::Separator();
+        ImGui::Text("Event Type:");
+        switch (event.type) {
+            case GWEventProperties::Type::BinaryBlackHole:
+                ImGui::TextColored(ImVec4(0.5f, 0.8f, 1.0f, 1.0f), "Binary Black Hole (BBH)");
+                break;
+            case GWEventProperties::Type::BinaryNeutronStar:
+                ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "Binary Neutron Star (BNS)");
+                ImGui::Text("Had electromagnetic counterpart!");
+                break;
+            case GWEventProperties::Type::NeutronStarBlackHole:
+                ImGui::TextColored(ImVec4(0.8f, 0.3f, 1.0f, 1.0f), "Neutron Star - Black Hole (NSBH)");
+                break;
+        }
+
+        ImGui::Spacing();
+
+        // Visualization controls
+        ImGui::Separator();
+        ImGui::Text("Visualization:");
+
+        int vizMode = static_cast<int>(gwSystem_.getVisualizationMode());
+        const char* vizModes[] = {"Rings", "Grid", "Rings + Grid"};
+        if (ImGui::Combo("Mode", &vizMode, vizModes, 3)) {
+            gwSystem_.setVisualizationMode(static_cast<GravitationalWaveSystem::VisualizationMode>(vizMode));
+        }
+
+        bool chirp = gwSystem_.isChirpEnabled();
+        if (ImGui::Checkbox("Frequency Chirp", &chirp)) {
+            gwSystem_.setChirpEnabled(chirp);
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Frequency increases as objects spiral in\nClassic 'chirp' sound in LIGO data");
+        }
+
+        if (ImGui::Button("Emit Wave Pulse", ImVec2(-1, 0))) {
+            gwSystem_.emitPulse();
+        }
+
+        if (ImGui::Button("Clear All Waves", ImVec2(-1, 0))) {
+            gwSystem_.clear();
+        }
+
+        ImGui::Spacing();
+
+        // Active pulses
+        size_t pulseCount = gwSystem_.getActivePulseCount();
+        ImGui::Text("Active wave pulses: %zu", pulseCount);
+
+        // Fun facts
+        if (event.name == "GW150914") {
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.3f, 1.0f), "Historic Moment!");
+            ImGui::TextWrapped("First direct detection of gravitational waves, confirming Einstein's 1916 prediction!");
+            ImGui::TextWrapped("Nobel Prize in Physics 2017");
+        } else if (event.name == "GW170817") {
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.3f, 1.0f), "Multi-Messenger Astronomy!");
+            ImGui::TextWrapped("First GW event with EM counterpart: gamma-rays, optical, X-rays, radio!");
+            ImGui::TextWrapped("Produced heavy elements (gold, platinum)");
+        }
     }
 
     ImGui::End();
