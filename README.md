@@ -46,6 +46,53 @@ make
 
 ---
 
+## 🏗️ Modular Architecture
+
+The Cosmic Simulator now features a **modular plugin architecture** that allows you to easily add new cosmic phenomena simulations!
+
+### Currently Available Modules
+
+- 🕳️ **Black Holes** - Comprehensive black hole simulation with 14 major feature systems
+- 🌌 **Galaxies** - Real-time N-body galaxy dynamics (coming soon)
+- ⭐ **Solar Systems** - Planetary orbits and celestial mechanics (coming soon)
+- 💥 **Supernovae** - Stellar explosion simulations (coming soon)
+
+### Module System Features
+
+- **Easy Switching**: Switch between different cosmic simulations instantly
+- **Independent Development**: Each module is self-contained and can be developed separately
+- **Plugin Architecture**: Add new modules without modifying core code
+- **Organized by Category**: Modules grouped into Compact Objects, Galaxies, Stellar, Cosmology
+
+### Adding Your Own Module
+
+Want to add your own cosmic simulation? It's easy!
+
+```cpp
+// 1. Implement the Module interface
+class YourModule : public cosmic::core::Module {
+public:
+    std::string getName() const override { return "Your Simulation"; }
+    std::string getCategory() const override { return "Your Category"; }
+
+    bool initialize(GLFWwindow* window) override { /* ... */ }
+    void update(float deltaTime) override { /* ... */ }
+    void render(Camera& camera, int w, int h) override { /* ... */ }
+    void renderUI() override { /* ... */ }
+};
+
+// 2. Register your module
+moduleManager.registerModule(std::make_unique<YourModule>());
+
+// 3. Done! Your module appears in the selector
+```
+
+📚 **See [docs/MODULE_DEVELOPMENT.md](docs/MODULE_DEVELOPMENT.md) for complete guide**
+
+📐 **See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for architecture details**
+
+---
+
 ## 🎮 Controls
 
 **Camera:**

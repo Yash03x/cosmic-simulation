@@ -59,8 +59,8 @@ target_include_directories(cosmic_physics PUBLIC
 )
 target_link_libraries(cosmic_physics PUBLIC Eigen3::Eigen)
 
-# Source files
-set(SOURCES
+# Core framework files
+set(CORE_SOURCES
     src/main.cpp
     src/core/Application.cpp
     src/core/Window.cpp
@@ -68,6 +68,7 @@ set(SOURCES
     src/core/Tutorial.cpp
     src/core/ComparisonMode.cpp
     src/core/AdaptiveStepController.cpp
+    src/core/ModuleManager.cpp
     src/rendering/Camera.cpp
     src/rendering/Shader.cpp
     src/rendering/Renderer.cpp
@@ -75,6 +76,18 @@ set(SOURCES
     src/tools/MeasurementTools.cpp
     src/tools/ParticleTrajectory.cpp
 )
+
+# Module files
+set(MODULE_SOURCES
+    # Black Hole Module
+    src/modules/blackhole/BlackHoleModule.cpp
+
+    # Galaxy Module
+    src/modules/galaxy/GalaxyModule.cpp
+)
+
+# Combine all sources
+set(SOURCES ${CORE_SOURCES} ${MODULE_SOURCES})
 
 # Header files
 set(HEADERS
