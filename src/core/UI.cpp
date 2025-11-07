@@ -134,6 +134,9 @@ void UI::render(rendering::Camera& camera,
     // Render binary black hole panel
     renderBinaryBlackHolePanel();
 
+    // Render comparison mode panel
+    renderComparisonModePanel();
+
     // Render about panel
     renderAboutPanel();
 
@@ -1467,6 +1470,155 @@ void UI::renderBinaryBlackHolePanel() {
             "LIGO and Virgo detect these mergers through the gravitational waves "
             "they emit, providing direct evidence for general relativity and "
             "black holes."
+        );
+    }
+
+    ImGui::End();
+}
+
+void UI::renderComparisonModePanel() {
+    ImGui::SetNextWindowPos(ImVec2(1170, 10), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(380, 450), ImGuiCond_FirstUseEver);
+
+    ImGui::Begin("Comparison Mode", nullptr, ImGuiWindowFlags_None);
+
+    ImGui::TextWrapped("Compare two black holes side-by-side!");
+    ImGui::Separator();
+
+    // Enable/disable comparison mode
+    bool enabled = comparisonMode_.isEnabled();
+    if (ImGui::Checkbox("Enable Comparison Mode", &enabled)) {
+        comparisonMode_.setEnabled(enabled);
+    }
+
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Split screen to compare two different black holes");
+    }
+
+    if (enabled) {
+        ImGui::Spacing();
+
+        // Split mode selection
+        if (ImGui::CollapsingHeader("Display Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+            int splitMode = comparisonMode_.getSplitMode();
+            const char* splitModes[] = {"Vertical Split (Left/Right)", "Horizontal Split (Top/Bottom)"};
+            if (ImGui::Combo("Split Mode", &splitMode, splitModes, 2)) {
+                comparisonMode_.setSplitMode(splitMode);
+            }
+
+            // Camera sync
+            bool syncCameras = comparisonMode_.areCamerasSynced();
+            if (ImGui::Checkbox("Synchronize Cameras", &syncCameras)) {
+                comparisonMode_.setSyncCameras(syncCameras);
+            }
+
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Move both cameras together for direct comparison");
+            }
+        }
+
+        // Left black hole selection
+        ImGui::Spacing();
+        if (ImGui::CollapsingHeader("Left Black Hole", ImGuiTreeNodeFlags_DefaultOpen)) {
+            int currentIndex = -1;
+            for (size_t i = 0; i < availablePresets_.size(); i++) {
+                if (availablePresets_[i].name == comparisonMode_.getLeftPreset().name) {
+                    currentIndex = static_cast<int>(i);
+                    break;
+                }
+            }
+
+            std::vector<const char*> presetNames;
+            for (const auto& preset : availablePresets_) {
+                presetNames.push_back(preset.name.c_str());
+            }
+
+            if (ImGui::Combo("Left Preset", &currentIndex, presetNames.data(),
+                           static_cast<int>(presetNames.size()))) {
+                if (currentIndex >= 0 && currentIndex < static_cast<int>(availablePresets_.size())) {
+                    comparisonMode_.setLeftBlackHole(availablePresets_[currentIndex]);
+                }
+            }
+
+            const auto& leftPreset = comparisonMode_.getLeftPreset();
+            ImGui::Text("Mass: %.2e M☉", leftPreset.mass);
+            ImGui::Text("Spin: %.3f", leftPreset.spin);
+            ImGui::TextWrapped("%s", leftPreset.description.c_str());
+        }
+
+        // Right black hole selection
+        ImGui::Spacing();
+        if (ImGui::CollapsingHeader("Right Black Hole", ImGuiTreeNodeFlags_DefaultOpen)) {
+            int currentIndex = -1;
+            for (size_t i = 0; i < availablePresets_.size(); i++) {
+                if (availablePresets_[i].name == comparisonMode_.getRightPreset().name) {
+                    currentIndex = static_cast<int>(i);
+                    break;
+                }
+            }
+
+            std::vector<const char*> presetNames;
+            for (const auto& preset : availablePresets_) {
+                presetNames.push_back(preset.name.c_str());
+            }
+
+            if (ImGui::Combo("Right Preset", &currentIndex, presetNames.data(),
+                           static_cast<int>(presetNames.size()))) {
+                if (currentIndex >= 0 && currentIndex < static_cast<int>(availablePresets_.size())) {
+                    comparisonMode_.setRightBlackHole(availablePresets_[currentIndex]);
+                }
+            }
+
+            const auto& rightPreset = comparisonMode_.getRightPreset();
+            ImGui::Text("Mass: %.2e M☉", rightPreset.mass);
+            ImGui::Text("Spin: %.3f", rightPreset.spin);
+            ImGui::TextWrapped("%s", rightPreset.description.c_str());
+        }
+
+        // Comparison info
+        ImGui::Spacing();
+        if (ImGui::CollapsingHeader("Comparison Details")) {
+            const auto& left = comparisonMode_.getLeftPreset();
+            const auto& right = comparisonMode_.getRightPreset();
+
+            ImGui::Text("Mass Ratio: %.2f", left.mass / right.mass);
+            ImGui::Text("Spin Difference: %.3f", std::abs(left.spin - right.spin));
+
+            // Compare event horizons
+            auto leftMetric = comparisonMode_.getLeftMetric();
+            auto rightMetric = comparisonMode_.getRightMetric();
+
+            if (leftMetric && rightMetric) {
+                double leftHorizon = leftMetric->eventHorizonRadius();
+                double rightHorizon = rightMetric->eventHorizonRadius();
+
+                ImGui::Spacing();
+                ImGui::Text("Left Event Horizon: %.2f M", leftHorizon);
+                ImGui::Text("Right Event Horizon: %.2f M", rightHorizon);
+                ImGui::Text("Horizon Ratio: %.2f", leftHorizon / rightHorizon);
+            }
+        }
+    } else {
+        ImGui::Spacing();
+        ImGui::TextColored(ImVec4(1, 1, 0, 1), "Enable comparison mode to begin");
+    }
+
+    // Help section
+    ImGui::Spacing();
+    if (ImGui::CollapsingHeader("About Comparison Mode")) {
+        ImGui::TextWrapped(
+            "Comparison mode splits the screen to show two black holes simultaneously. "
+            "This is useful for understanding how mass and spin affect:"
+        );
+        ImGui::BulletText("Event horizon size");
+        ImGui::BulletText("Accretion disk appearance");
+        ImGui::BulletText("Gravitational lensing");
+        ImGui::BulletText("Ergosphere (for spinning BHs)");
+        ImGui::BulletText("Time dilation effects");
+        ImGui::Spacing();
+        ImGui::TextWrapped(
+            "Use synchronized cameras to directly compare the same viewing angle, "
+            "or independent cameras to explore each black hole separately."
         );
     }
 

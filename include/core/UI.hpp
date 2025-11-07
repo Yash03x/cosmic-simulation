@@ -11,6 +11,7 @@
 #include "../tools/MeasurementTools.hpp"
 #include "../tools/ParticleTrajectory.hpp"
 #include "Tutorial.hpp"
+#include "ComparisonMode.hpp"
 #include <memory>
 #include <string>
 
@@ -203,6 +204,12 @@ public:
     std::shared_ptr<BinaryBlackHole> getBinaryBlackHole() { return binaryBH_; }
     const std::shared_ptr<BinaryBlackHole> getBinaryBlackHole() const { return binaryBH_; }
 
+    /**
+     * @brief Get comparison mode
+     */
+    ComparisonMode& getComparisonMode() { return comparisonMode_; }
+    const ComparisonMode& getComparisonMode() const { return comparisonMode_; }
+
 private:
     GLFWwindow* window_;
     bool visible_;
@@ -260,6 +267,9 @@ private:
     std::vector<BinaryBlackHoleProperties> availableBinaryBH_;
     int selectedBinaryBHIndex_;
 
+    // Comparison mode
+    ComparisonMode comparisonMode_;
+
     // Demo window
     bool showDemoWindow_;
 
@@ -309,6 +319,11 @@ private:
      * @brief Render binary black hole panel
      */
     void renderBinaryBlackHolePanel();
+
+    /**
+     * @brief Render comparison mode panel
+     */
+    void renderComparisonModePanel();
 
     /**
      * @brief Cleanup ImGui resources

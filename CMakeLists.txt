@@ -66,6 +66,7 @@ set(SOURCES
     src/core/Window.cpp
     src/core/UI.cpp
     src/core/Tutorial.cpp
+    src/core/ComparisonMode.cpp
     src/core/AdaptiveStepController.cpp
     src/rendering/Camera.cpp
     src/rendering/Shader.cpp
