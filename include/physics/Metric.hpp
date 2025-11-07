@@ -77,6 +77,12 @@ public:
     virtual double getMass() const = 0;
 
     /**
+     * @brief Get black hole spin parameter (a/M)
+     * @return Spin parameter (0 for Schwarzschild, 0-1 for Kerr)
+     */
+    virtual double spin() const { return 0.0; }
+
+    /**
      * @brief Check if position is inside event horizon
      * @param r Radial coordinate
      * @return True if inside event horizon

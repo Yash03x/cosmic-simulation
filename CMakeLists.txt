@@ -71,6 +71,7 @@ set(SOURCES
     src/rendering/Camera.cpp
     src/rendering/Shader.cpp
     src/rendering/Renderer.cpp
+    src/rendering/MagneticField.cpp
     src/tools/MeasurementTools.cpp
     src/tools/ParticleTrajectory.cpp
 )

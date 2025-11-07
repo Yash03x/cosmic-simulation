@@ -35,6 +35,12 @@ public:
     double getMass() const override { return mass_; }
 
     /**
+     * @brief Get spin parameter (override from Metric base class)
+     * @return Dimensionless spin a/M
+     */
+    double spin() const override { return spin_; }
+
+    /**
      * @brief Get event horizon radius (depends on spin)
      * @return r+ = M + sqrt(M² - a²) in geometric units
      */
