@@ -352,17 +352,44 @@ cosmic-simulation/
 - **Particle Trajectories** - Geodesics and orbits
 - **Advanced Features** - Neutron stars, pulsars, gravitational waves
 
+### ✅ Binary Black Hole Mergers
+- **6 LIGO/Virgo Systems** - Real binary black hole detections
+- **Orbital Dynamics** - Keplerian orbits with inspiral
+- **Peters-Mathews Formula** - Accurate gravitational wave emission
+- **Merger Phases** - Inspiral → Merger → Ringdown → Final BH
+- **Real-time Parameters** - Orbital frequency, separation, GW strain
+- **Energy Radiated** - Mass converted to gravitational waves
+- **Final Black Hole** - Predicted mass and spin from merger
+- **Educational Tooltips** - Learn about binary evolution
+
+### ✅ Side-by-Side Comparison Mode
+- **Dual Viewports** - Compare two black holes simultaneously
+- **Vertical/Horizontal Split** - Choose your preferred layout
+- **Camera Synchronization** - Option to link both cameras
+- **Independent Selection** - Different black holes on each side
+- **Comparison Metrics** - Mass ratio, horizon size, spin difference
+- **Direct Visual Comparison** - See how parameters affect appearance
+- **Educational Tool** - Understand mass and spin effects instantly
+
+### ✅ Electromagnetic Field Visualization
+- **Magnetic Field Lines** - Dipole field around black holes
+- **Frame-Dragging Effects** - Field lines twisted by rotation
+- **Multiple Color Schemes** - Standard, heat map, polarity-based
+- **Field Strength Display** - Visualize intensity variations
+- **Configurable Parameters** - Adjust field strength and magnetic axis
+- **Physics-Accurate** - Based on magnetosphere models
+- **Educational Tooltips** - Learn about black hole magnetospheres
+
 ## 🚀 Future Expansion
 
 Planned features for upcoming versions:
 - Star lifecycle animation (main sequence → supernova → black hole)
-- Binary black hole mergers with collision dynamics
-- Side-by-side comparison mode
-- Electromagnetic field visualization
-- Hawking radiation effects
+- Hawking radiation effects visualization
 - Video recording (FFmpeg integration)
+- Enhanced comparison tools (more metrics)
+- Custom black hole parameter editor
 
-**Current version includes 11 major feature systems with production-ready code!**
+**Current version includes 14 major feature systems with production-ready code!**
 
 ---
 
@@ -443,7 +470,7 @@ MIT License - Free for education, research, and fun!
 
 ## ✨ Status: Feature-Complete & Production Ready
 
-✅ **11 Major Feature Systems**
+✅ **14 Major Feature Systems**
 ✅ Time Controls & Screenshot Capture
 ✅ Measurement Tools (distance/angle/redshift)
 ✅ Particle Trajectories with RK4 Integration
@@ -452,6 +479,9 @@ MIT License - Free for education, research, and fun!
 ✅ Pulsar Beams (lighthouse effect)
 ✅ Gravitational Waves (6 LIGO detections)
 ✅ Interactive Tutorial System (6 lessons)
+✅ Binary Black Hole Mergers (6 LIGO systems)
+✅ Side-by-Side Comparison Mode (dual viewports)
+✅ Electromagnetic Field Visualization (magnetic field lines)
 ✅ Real-time animation (60 FPS)
 ✅ Physically accurate & validated
 ✅ Comprehensive documentation
