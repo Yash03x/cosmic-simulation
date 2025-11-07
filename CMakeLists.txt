@@ -52,6 +52,7 @@ add_library(cosmic_physics STATIC
     src/cosmic/NeutronStar.cpp
     src/cosmic/Pulsar.cpp
     src/cosmic/GravitationalWaves.cpp
+    src/cosmic/BinaryBlackHole.cpp
 )
 target_include_directories(cosmic_physics PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include

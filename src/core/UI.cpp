@@ -36,6 +36,8 @@ UI::UI(GLFWwindow* window)
       selectedNeutronStarIndex_(0),
       pulsar_(nullptr),
       selectedGWEventIndex_(0),
+      binaryBH_(nullptr),
+      selectedBinaryBHIndex_(0),
       showDemoWindow_(false) {
     // Load all available presets
     availablePresets_ = BlackHolePresets::getAllPresets();
@@ -49,6 +51,14 @@ UI::UI(GLFWwindow* window)
 
     // Load gravitational wave events
     availableGWEvents_ = GravitationalWavePresets::getAllPresets();
+
+    // Load binary black hole presets
+    availableBinaryBH_.push_back(BinaryBlackHolePresets::getGW150914());
+    availableBinaryBH_.push_back(BinaryBlackHolePresets::getGW170814());
+    availableBinaryBH_.push_back(BinaryBlackHolePresets::getGW190521());
+    availableBinaryBH_.push_back(BinaryBlackHolePresets::getGW190412());
+    availableBinaryBH_.push_back(BinaryBlackHolePresets::getGenericCircular());
+    availableBinaryBH_.push_back(BinaryBlackHolePresets::getGenericEccentric());
 }
 
 UI::~UI() {
@@ -120,6 +130,9 @@ void UI::render(rendering::Camera& camera,
 
     // Render gravitational wave panel
     renderGravitationalWavePanel();
+
+    // Render binary black hole panel
+    renderBinaryBlackHolePanel();
 
     // Render about panel
     renderAboutPanel();
@@ -1272,6 +1285,192 @@ void UI::renderGravitationalWavePanel() {
 void UI::endFrame() {
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
+void UI::renderBinaryBlackHolePanel() {
+    ImGui::SetNextWindowPos(ImVec2(760, 10), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(400, 550), ImGuiCond_FirstUseEver);
+
+    ImGui::Begin("Binary Black Hole System", nullptr, ImGuiWindowFlags_None);
+
+    ImGui::TextWrapped("Simulate two black holes orbiting and merging!");
+    ImGui::Separator();
+
+    // Preset selection
+    if (ImGui::CollapsingHeader("Binary System Presets", ImGuiTreeNodeFlags_DefaultOpen)) {
+        const char* presetNames[] = {
+            "GW150914 (First Detection)",
+            "GW170814 (3-Detector)",
+            "GW190521 (Intermediate Mass)",
+            "GW190412 (Unequal Masses)",
+            "Generic Circular",
+            "Generic Eccentric"
+        };
+
+        int currentIndex = selectedBinaryBHIndex_;
+        if (ImGui::Combo("Select System", &currentIndex, presetNames, 6)) {
+            selectedBinaryBHIndex_ = currentIndex;
+
+            // Create new binary system with selected preset
+            binaryBH_ = std::make_shared<BinaryBlackHole>(availableBinaryBH_[selectedBinaryBHIndex_]);
+            binaryBH_->setVisible(true);
+        }
+
+        if (binaryBH_ && selectedBinaryBHIndex_ < static_cast<int>(availableBinaryBH_.size())) {
+            const auto& props = availableBinaryBH_[selectedBinaryBHIndex_];
+
+            ImGui::Spacing();
+            ImGui::Text("System: %s", props.name.c_str());
+            ImGui::Text("Mass 1: %.1f M☉", props.mass1);
+            ImGui::Text("Mass 2: %.1f M☉", props.mass2);
+            ImGui::Text("Total Mass: %.1f M☉", props.totalMass());
+            ImGui::Text("Mass Ratio: %.2f", props.massRatio());
+            ImGui::Text("Chirp Mass: %.2f M☉", props.chirpMass());
+
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Chirp mass determines GW frequency evolution");
+            }
+        }
+    }
+
+    // Controls
+    if (binaryBH_) {
+        ImGui::Spacing();
+        if (ImGui::CollapsingHeader("Controls", ImGuiTreeNodeFlags_DefaultOpen)) {
+            bool visible = binaryBH_->isVisible();
+            if (ImGui::Checkbox("Show Binary System", &visible)) {
+                binaryBH_->setVisible(visible);
+            }
+
+            ImGui::SameLine();
+            if (ImGui::Button("Reset System")) {
+                binaryBH_->reset();
+            }
+
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Reset to initial orbital configuration");
+            }
+        }
+
+        // Current State
+        ImGui::Spacing();
+        if (ImGui::CollapsingHeader("System State", ImGuiTreeNodeFlags_DefaultOpen)) {
+            // State indicator
+            const char* stateNames[] = {"Inspiral", "Merger", "Ringdown", "Complete"};
+            int stateIndex = static_cast<int>(binaryBH_->getState());
+            ImGui::Text("Phase: %s", stateNames[stateIndex]);
+
+            // Color-code state
+            ImVec4 stateColor;
+            switch (binaryBH_->getState()) {
+                case BinaryState::Inspiral:
+                    stateColor = ImVec4(0.3f, 0.8f, 1.0f, 1.0f);  // Cyan
+                    break;
+                case BinaryState::Merger:
+                    stateColor = ImVec4(1.0f, 0.5f, 0.0f, 1.0f);  // Orange
+                    break;
+                case BinaryState::Ringdown:
+                    stateColor = ImVec4(1.0f, 1.0f, 0.3f, 1.0f);  // Yellow
+                    break;
+                case BinaryState::Complete:
+                    stateColor = ImVec4(0.5f, 1.0f, 0.5f, 1.0f);  // Green
+                    break;
+            }
+
+            ImGui::PushStyleColor(ImGuiCol_PlotHistogram, stateColor);
+            float progress = (stateIndex + 1) / 4.0f;
+            ImGui::ProgressBar(progress, ImVec2(-1, 0));
+            ImGui::PopStyleColor();
+
+            ImGui::Spacing();
+            ImGui::Text("Separation: %.1f M", binaryBH_->getSeparation());
+            ImGui::Text("Orbital Frequency: %.2f Hz", binaryBH_->getOrbitalFrequency());
+            ImGui::Text("GW Frequency: %.2f Hz", binaryBH_->getGWFrequency());
+
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Gravitational wave frequency = 2 × orbital frequency");
+            }
+
+            ImGui::Text("Orbital Velocity: %.3fc", binaryBH_->getOrbitalVelocity());
+
+            float timeToMerger = binaryBH_->getTimeToMerger();
+            if (binaryBH_->getState() == BinaryState::Inspiral) {
+                ImGui::Text("Time to Merger: %.4f s", timeToMerger);
+            } else {
+                ImGui::TextColored(ImVec4(1, 1, 0, 1), "Merger in progress!");
+            }
+        }
+
+        // Gravitational Wave Emission
+        ImGui::Spacing();
+        if (ImGui::CollapsingHeader("Gravitational Wave Emission", ImGuiTreeNodeFlags_DefaultOpen)) {
+            float strain = binaryBH_->getGWStrain();
+            ImGui::Text("GW Strain: %.2e", strain);
+
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Amplitude of spacetime oscillation");
+            }
+
+            // Strain visualization (simplified)
+            float strainVis = std::min(strain * 1e3f, 1.0f);
+            ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(0.8f, 0.3f, 1.0f, 1.0f));
+            ImGui::ProgressBar(strainVis, ImVec2(-1, 0), "GW Amplitude");
+            ImGui::PopStyleColor();
+
+            ImGui::Spacing();
+            ImGui::Text("Energy Radiated: %.3f M☉c²", binaryBH_->getEnergyRadiated());
+
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Total mass-energy converted to gravitational waves");
+            }
+        }
+
+        // Final Black Hole Properties
+        if (binaryBH_->getState() == BinaryState::Ringdown ||
+            binaryBH_->getState() == BinaryState::Complete) {
+            ImGui::Spacing();
+            if (ImGui::CollapsingHeader("Final Black Hole", ImGuiTreeNodeFlags_DefaultOpen)) {
+                ImGui::Text("Final Mass: %.2f M☉", binaryBH_->getFinalMass());
+                ImGui::Text("Final Spin: %.3f", binaryBH_->getFinalSpin());
+
+                if (ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip("Spin parameter a/M of merged black hole");
+                }
+
+                ImGui::Spacing();
+                ImGui::TextColored(ImVec4(0.5f, 1.0f, 0.5f, 1.0f),
+                                 "Merger complete! Single black hole formed.");
+            }
+        }
+    } else {
+        ImGui::Spacing();
+        ImGui::TextColored(ImVec4(1, 1, 0, 1), "Select a preset to begin simulation");
+    }
+
+    // Educational Info
+    ImGui::Spacing();
+    if (ImGui::CollapsingHeader("About Binary Mergers")) {
+        ImGui::TextWrapped(
+            "Binary black holes orbit each other and gradually spiral inward "
+            "due to gravitational wave emission. As they approach, the orbital "
+            "frequency increases (chirp signal) until they merge into a single "
+            "black hole."
+        );
+        ImGui::Spacing();
+        ImGui::TextWrapped(
+            "The Peters-Mathews formula describes the inspiral rate. During "
+            "merger, numerical relativity simulations are needed. The final "
+            "mass and spin are predicted by fitting formulas from simulations."
+        );
+        ImGui::Spacing();
+        ImGui::TextWrapped(
+            "LIGO and Virgo detect these mergers through the gravitational waves "
+            "they emit, providing direct evidence for general relativity and "
+            "black holes."
+        );
+    }
+
+    ImGui::End();
 }
 
 bool UI::wantsCaptureMouse() const {

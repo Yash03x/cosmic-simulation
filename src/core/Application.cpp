@@ -172,6 +172,12 @@ void Application::update(float deltaTime) {
     // Update gravitational wave system
     ui_->getGravitationalWaveSystem().update(deltaTime);
 
+    // Update binary black hole system (if active)
+    auto binaryBH = ui_->getBinaryBlackHole();
+    if (binaryBH && binaryBH->isVisible()) {
+        binaryBH->update(deltaTime);
+    }
+
     ui_->resetChangeFlags();
 }
 

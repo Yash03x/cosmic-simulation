@@ -7,6 +7,7 @@
 #include "../cosmic/NeutronStar.hpp"
 #include "../cosmic/Pulsar.hpp"
 #include "../cosmic/GravitationalWaves.hpp"
+#include "../cosmic/BinaryBlackHole.hpp"
 #include "../tools/MeasurementTools.hpp"
 #include "../tools/ParticleTrajectory.hpp"
 #include "Tutorial.hpp"
@@ -196,6 +197,12 @@ public:
     std::shared_ptr<Pulsar> getPulsar() { return pulsar_; }
     const std::shared_ptr<Pulsar> getPulsar() const { return pulsar_; }
 
+    /**
+     * @brief Get binary black hole system (if active)
+     */
+    std::shared_ptr<BinaryBlackHole> getBinaryBlackHole() { return binaryBH_; }
+    const std::shared_ptr<BinaryBlackHole> getBinaryBlackHole() const { return binaryBH_; }
+
 private:
     GLFWwindow* window_;
     bool visible_;
@@ -248,6 +255,11 @@ private:
     std::vector<GWEventProperties> availableGWEvents_;
     int selectedGWEventIndex_;
 
+    // Binary black hole system
+    std::shared_ptr<BinaryBlackHole> binaryBH_;
+    std::vector<BinaryBlackHoleProperties> availableBinaryBH_;
+    int selectedBinaryBHIndex_;
+
     // Demo window
     bool showDemoWindow_;
 
@@ -292,6 +304,11 @@ private:
      * @brief Render gravitational wave panel
      */
     void renderGravitationalWavePanel();
+
+    /**
+     * @brief Render binary black hole panel
+     */
+    void renderBinaryBlackHolePanel();
 
     /**
      * @brief Cleanup ImGui resources
