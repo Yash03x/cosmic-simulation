@@ -84,6 +84,7 @@ set(MODULE_SOURCES
 
     # Galaxy Module
     src/modules/galaxy/GalaxyModule.cpp
+    src/modules/galaxy/GalaxyPresets.cpp
 )
 
 # Combine all sources

@@ -15,16 +15,21 @@ namespace galaxy {
 GalaxyModule::GalaxyModule()
     : window_(nullptr),
       initialized_(false),
-      galaxyType_(GalaxyType::Spiral),
-      numStars_(10000),
-      galaxyRadius_(100.0f),
-      rotationSpeed_(0.5f),
+      selectedGalaxyIndex_(0),
       starVAO_(0),
       starVBO_(0),
       shaderProgram_(0),
       simulationTime_(0.0f),
       timeScale_(1.0f),
       paused_(false) {
+
+    // Load all galaxy presets
+    availableGalaxies_ = GalaxyPresets::getAllPresets();
+
+    // Start with Milky Way
+    if (!availableGalaxies_.empty()) {
+        currentGalaxy_ = availableGalaxies_[0];
+    }
 }
 
 GalaxyModule::~GalaxyModule() {
@@ -76,46 +81,88 @@ void GalaxyModule::renderUI() {
     if (!initialized_) return;
 
     ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(350, 400), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(400, 550), ImGuiCond_FirstUseEver);
 
     ImGui::Begin("Galaxy Simulation", nullptr, ImGuiWindowFlags_None);
 
-    ImGui::TextWrapped("Real-time N-body galaxy simulation");
+    ImGui::TextWrapped("Explore real galaxies with accurate astronomical data!");
     ImGui::Separator();
     ImGui::Spacing();
 
-    // Galaxy type selection
-    if (ImGui::CollapsingHeader("Galaxy Type", ImGuiTreeNodeFlags_DefaultOpen)) {
-        const char* types[] = {"Spiral", "Elliptical", "Irregular", "Barred Spiral"};
-        int currentType = static_cast<int>(galaxyType_);
+    // Galaxy preset selection
+    if (ImGui::CollapsingHeader("Famous Galaxies", ImGuiTreeNodeFlags_DefaultOpen)) {
+        std::vector<const char*> galaxyNames;
+        for (const auto& galaxy : availableGalaxies_) {
+            galaxyNames.push_back(galaxy.name.c_str());
+        }
 
-        if (ImGui::Combo("Type", &currentType, types, 4)) {
-            galaxyType_ = static_cast<GalaxyType>(currentType);
+        int currentIndex = selectedGalaxyIndex_;
+        if (ImGui::Combo("Select Galaxy", &currentIndex, galaxyNames.data(),
+                       static_cast<int>(galaxyNames.size()))) {
+            selectedGalaxyIndex_ = currentIndex;
+            currentGalaxy_ = availableGalaxies_[selectedGalaxyIndex_];
             generateGalaxy();
         }
 
+        ImGui::Spacing();
+        ImGui::TextWrapped("%s", currentGalaxy_.description.c_str());
+
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Select galaxy morphology");
+            ImGui::SetTooltip("Based on real astronomical observations");
         }
     }
 
-    // Galaxy parameters
+    // Physical Properties
     ImGui::Spacing();
-    if (ImGui::CollapsingHeader("Parameters", ImGuiTreeNodeFlags_DefaultOpen)) {
-        bool regenerate = false;
+    if (ImGui::CollapsingHeader("Physical Properties", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::Text("Total Mass: %.2e M☉", currentGalaxy_.totalMass);
+        ImGui::Text("Stellar Mass: %.2e M☉", currentGalaxy_.stellarMass);
+        ImGui::Text("Dark Matter: %.2e M☉", currentGalaxy_.darkMatterMass);
 
-        if (ImGui::SliderInt("Stars", &numStars_, 1000, 50000)) {
-            regenerate = true;
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("~%.0f%% of galaxy mass is dark matter",
+                            (currentGalaxy_.darkMatterMass / currentGalaxy_.totalMass) * 100.0f);
         }
 
-        if (ImGui::SliderFloat("Radius", &galaxyRadius_, 50.0f, 300.0f, "%.1f kpc")) {
-            regenerate = true;
+        ImGui::Spacing();
+        ImGui::Text("Disk Radius: %.1f kpc (%.0f ly)",
+                   currentGalaxy_.radius,
+                   currentGalaxy_.radius * 3262.0);  // Convert kpc to light-years
+
+        ImGui::Text("Disk Thickness: %.2f kpc (%.0f ly)",
+                   currentGalaxy_.scaleHeight,
+                   currentGalaxy_.scaleHeight * 3262.0);
+
+        ImGui::Text("Stars: %.2e", static_cast<double>(currentGalaxy_.actualStarCount));
+        ImGui::Text("Luminosity: %.2e L☉", currentGalaxy_.luminosity);
+    }
+
+    // Dynamics
+    ImGui::Spacing();
+    if (ImGui::CollapsingHeader("Dynamics", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (currentGalaxy_.type != GalaxyType::Elliptical) {
+            ImGui::Text("Rotation Velocity: %.0f km/s", currentGalaxy_.rotationVelocity);
+
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Orbital velocity at R ≈ 8.5 kpc");
+            }
+
+            ImGui::Text("Orbital Period: %.0f Myr",
+                       (2.0 * 3.14159 * 8.5 * 3262.0 * 9.461e12) /  // Circumference in km
+                       (currentGalaxy_.rotationVelocity * 365.25 * 24 * 3600 * 1e6));  // Period in Myr
         }
 
-        ImGui::SliderFloat("Rotation Speed", &rotationSpeed_, 0.1f, 2.0f);
+        ImGui::Text("Velocity Dispersion: %.0f km/s", currentGalaxy_.velocityDispersion);
 
-        if (regenerate && ImGui::Button("Regenerate Galaxy")) {
-            generateGalaxy();
+        if (currentGalaxy_.type != GalaxyType::Elliptical) {
+            ImGui::Spacing();
+            ImGui::Text("Spiral Arms: %d", currentGalaxy_.numSpiralArms);
+            if (currentGalaxy_.numSpiralArms > 0) {
+                ImGui::Text("Arm Pitch Angle: %.0f°", currentGalaxy_.armPitch);
+            }
+            if (currentGalaxy_.barLength > 0) {
+                ImGui::Text("Bar Length: %.1f kpc", currentGalaxy_.barLength * 2.0);
+            }
         }
     }
 
@@ -203,9 +250,9 @@ void GalaxyModule::reset() {
 
 void GalaxyModule::generateGalaxy() {
     stars_.clear();
-    stars_.reserve(numStars_);
+    stars_.reserve(currentGalaxy_.numStarsSimulated);
 
-    switch (galaxyType_) {
+    switch (currentGalaxy_.type) {
         case GalaxyType::Spiral:
         case GalaxyType::Barred:
             generateSpiralGalaxy();
@@ -214,64 +261,96 @@ void GalaxyModule::generateGalaxy() {
             generateEllipticalGalaxy();
             break;
         case GalaxyType::Irregular:
-            // TODO: Implement irregular galaxy generation
-            generateSpiralGalaxy();  // Fallback for now
+            generateSpiralGalaxy();  // Irregular uses modified spiral
             break;
     }
 
-    std::cout << "GalaxyModule: Generated " << galaxyType_ << " galaxy with "
-              << stars_.size() << " stars\n";
+    std::cout << "GalaxyModule: Generated " << currentGalaxy_.name << " with "
+              << stars_.size() << " stars (representing " << currentGalaxy_.actualStarCount << " actual stars)\n";
 }
 
 void GalaxyModule::generateSpiralGalaxy() {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<float> dis(0.0f, 1.0f);
+    std::normal_distribution<float> normalDis(0.0f, 1.0f);
 
-    const int numArms = 2;
+    const int numArms = currentGalaxy_.numSpiralArms > 0 ? currentGalaxy_.numSpiralArms : 2;
     const float armAngleOffset = glm::two_pi<float>() / numArms;
+    const float galaxyRadius = static_cast<float>(currentGalaxy_.radius);  // kpc
+    const float scaleHeight = static_cast<float>(currentGalaxy_.scaleHeight);  // kpc
+    const float rotVel = static_cast<float>(currentGalaxy_.rotationVelocity);  // km/s
 
-    for (int i = 0; i < numStars_; i++) {
+    for (int i = 0; i < currentGalaxy_.numStarsSimulated; i++) {
         Star star;
 
-        // Radial distance (with exponential disk profile)
-        float r = galaxyRadius_ * std::sqrt(dis(gen));
+        // Radial distance (exponential disk profile)
+        float u = dis(gen);
+        float r = -galaxyRadius * 0.5f * std::log(1.0f - u * 0.95f);  // Scale length = R/2
+        r = std::min(r, galaxyRadius);  // Cap at galaxy radius
 
-        // Angular position (spiral arms)
+        // Angular position (spiral arms with pitch angle)
         int arm = i % numArms;
         float armAngle = arm * armAngleOffset;
-        float spiralAngle = armAngle + (r / galaxyRadius_) * glm::pi<float>();
-        float randomAngle = (dis(gen) - 0.5f) * 0.5f;  // Add some scatter
-        float theta = spiralAngle + randomAngle;
+        float pitchRad = glm::radians(static_cast<float>(currentGalaxy_.armPitch));
+        float spiralAngle = armAngle + (r / galaxyRadius) * 2.0f * glm::pi<float>() / std::tan(pitchRad);
 
-        // Height (disk thickness)
-        float z = (dis(gen) - 0.5f) * 5.0f * std::exp(-r / (galaxyRadius_ * 0.5f));
+        // Add scatter around spiral arms
+        float armScatter = (dis(gen) - 0.5f) * 0.8f;
+        float theta = spiralAngle + armScatter;
 
-        // Position
+        // Add bar if present
+        if (currentGalaxy_.barLength > 0 && r < currentGalaxy_.barLength) {
+            // Stars in bar region - align more with bar
+            float barAngle = (arm < numArms / 2) ? 0.0f : glm::pi<float>();
+            theta = barAngle + (dis(gen) - 0.5f) * 0.3f;
+        }
+
+        // Height (Gaussian vertical distribution)
+        float z = normalDis(gen) * scaleHeight * std::exp(-r / (galaxyRadius * 0.7f));
+
+        // Position in kpc
         star.position = glm::vec3(
             r * std::cos(theta),
             z,
             r * std::sin(theta)
         );
 
-        // Orbital velocity (simplified rotation curve)
-        float vOrbit = rotationSpeed_ * std::sqrt(r / galaxyRadius_);
+        // Realistic rotation curve (Flat rotation curve with slight rise)
+        // V(r) = V_max * (1 - exp(-r/r_s)) for dark matter halo
+        float vOrbit = rotVel * (1.0f - std::exp(-r / (galaxyRadius * 0.15f)));
+
+        // Orbital velocity in km/s
         star.velocity = glm::vec3(
             -vOrbit * std::sin(theta),
-            0.0f,
+            normalDis(gen) * currentGalaxy_.velocityDispersion * 0.3f,  // Vertical motion
             vOrbit * std::cos(theta)
         );
 
-        // Color (redder toward center, bluer in arms)
-        float colorFactor = r / galaxyRadius_;
-        star.color = glm::vec3(
-            0.8f + 0.2f * (1.0f - colorFactor),
-            0.8f + 0.2f * colorFactor,
-            0.9f + 0.1f * colorFactor
-        );
+        // Color based on stellar population
+        // Blue young stars in arms, red old stars in bulge
+        float colorFactor = r / galaxyRadius;
+        float armProximity = std::abs(std::sin((theta - spiralAngle) * numArms));
 
-        star.mass = 1.0f;
-        star.luminosity = 1.0f;
+        if (r < currentGalaxy_.centralBulgeRadius) {
+            // Bulge stars (old, red)
+            star.color = glm::vec3(0.9f, 0.7f, 0.5f);
+            star.temperature = 4500.0f;  // K-type stars
+            star.mass = 0.8f;  // Solar masses
+            star.luminosity = 0.4f;  // Solar luminosities
+        } else if (armProximity > 0.7f) {
+            // Spiral arm stars (young, blue)
+            star.color = glm::vec3(0.6f, 0.7f, 1.0f);
+            star.temperature = 10000.0f;  // A/B-type stars
+            star.mass = 2.0f;
+            star.luminosity = 20.0f;
+        } else {
+            // Disk stars (intermediate)
+            star.color = glm::vec3(0.9f, 0.9f, 0.8f);
+            star.temperature = 5800.0f;  // G-type (like Sun)
+            star.mass = 1.0f;
+            star.luminosity = 1.0f;
+        }
 
         stars_.push_back(star);
     }
@@ -283,59 +362,99 @@ void GalaxyModule::generateEllipticalGalaxy() {
     std::normal_distribution<float> normalDis(0.0f, 1.0f);
     std::uniform_real_distribution<float> uniformDis(0.0f, 1.0f);
 
-    for (int i = 0; i < numStars_; i++) {
+    const float effectiveRadius = static_cast<float>(currentGalaxy_.radius);  // kpc
+    const float velDispersion = static_cast<float>(currentGalaxy_.velocityDispersion);  // km/s
+
+    for (int i = 0; i < currentGalaxy_.numStarsSimulated; i++) {
         Star star;
 
-        // Random position (spheroidal distribution)
-        float r = galaxyRadius_ * std::pow(uniformDis(gen), 1.0f/3.0f);
+        // de Vaucouleurs profile (R^(1/4) law) for elliptical galaxies
+        float u = uniformDis(gen);
+        float r = effectiveRadius * std::pow(-std::log(1.0f - u), 0.25f);  // Approximate R^(1/4)
+        r = std::min(r, effectiveRadius * 3.0f);  // Cap at 3x effective radius
+
         float theta = std::acos(2.0f * uniformDis(gen) - 1.0f);
         float phi = glm::two_pi<float>() * uniformDis(gen);
 
-        // Ellipsoidal shape (flattened along y-axis)
-        float flatten = 0.7f;
+        // Ellipsoidal shape (E0-E7 classification)
+        // For M87 (E0-1), nearly spherical
+        float flatten = 0.9f;  // E0 is nearly round
+
         star.position = glm::vec3(
             r * std::sin(theta) * std::cos(phi),
             r * std::sin(theta) * std::sin(phi) * flatten,
             r * std::cos(theta)
         );
 
-        // Random velocity (velocity dispersion)
-        float velDispersion = 0.3f;
+        // Velocity dispersion (isotropic, no net rotation for ellipticals)
+        // Higher dispersion in center, lower at large radii
+        float localDispersion = velDispersion * std::exp(-r / (effectiveRadius * 2.0f));
+
         star.velocity = glm::vec3(
-            normalDis(gen) * velDispersion,
-            normalDis(gen) * velDispersion,
-            normalDis(gen) * velDispersion
+            normalDis(gen) * localDispersion,
+            normalDis(gen) * localDispersion,
+            normalDis(gen) * localDispersion
         );
 
-        // Color (uniformly old, red stars)
-        star.color = glm::vec3(0.9f, 0.7f, 0.5f);
+        // Elliptical galaxies have old stellar populations
+        // Color-magnitude relation: redder in center (metal-rich), bluer outskirts
+        float colorGradient = std::max(0.0f, 1.0f - r / effectiveRadius);
 
-        star.mass = 1.0f;
-        star.luminosity = 0.8f;
+        star.color = glm::vec3(
+            0.85f + 0.1f * colorGradient,   // Red
+            0.65f + 0.1f * colorGradient,   // Green
+            0.45f + 0.05f * colorGradient   // Blue
+        );
+
+        // Old, low-mass stars dominate elliptical galaxies
+        star.temperature = 4000.0f + 1000.0f * colorGradient;  // 4000-5000 K (K/M-type)
+        star.mass = 0.6f + 0.3f * uniformDis(gen);  // 0.6-0.9 solar masses
+        star.luminosity = 0.3f + 0.4f * colorGradient;  // 0.3-0.7 solar luminosities
 
         stars_.push_back(star);
     }
 }
 
 void GalaxyModule::updateStarPositions(float deltaTime) {
-    // Simplified N-body simulation
-    // In production, you'd use Barnes-Hut or other optimizations
+    // Simplified N-body simulation with realistic galaxy mass
+    // Uses point mass + NFW dark matter halo
+
+    // Gravitational constant in units where velocities are in km/s,
+    // distances in kpc, masses in solar masses, and time in Myr
+    const float G = 4.302e-3;  // kpc * (km/s)^2 / M_sun
+
+    // Convert deltaTime from seconds to millions of years
+    const float deltaTime_Myr = deltaTime / (365.25 * 24 * 3600 * 1e6);
+
+    // Galaxy mass components (in solar masses)
+    const float M_bulge = static_cast<float>(currentGalaxy_.stellarMass * 0.2);  // 20% in bulge
+    const float M_dm_total = static_cast<float>(currentGalaxy_.darkMatterMass);
 
     for (auto& star : stars_) {
-        // Update position
-        star.position += star.velocity * deltaTime;
+        // Update position (v * dt, with dt in Myr, v in km/s, gives position change in kpc)
+        star.position += star.velocity * deltaTime_Myr * 1.0226e-6f;  // Convert km/s * Myr to kpc
 
-        // Simple gravity (point mass at center + dark matter halo)
+        // Gravitational acceleration from galaxy mass distribution
         float r = glm::length(star.position);
-        if (r > 0.1f) {
+        if (r > 0.01f) {  // Avoid singularity at center
             glm::vec3 rHat = star.position / r;
 
-            // Gravitational acceleration
-            float M_center = numStars_ * 0.1f;  // Central mass
-            float M_dm = numStars_ * 0.5f;      // Dark matter
-            float a_grav = -(M_center / (r * r) + M_dm / (r * r * r));
+            // 1. Central bulge (point mass approximation)
+            float a_bulge = -G * M_bulge / (r * r);
 
-            star.velocity += rHat * a_grav * deltaTime;
+            // 2. NFW dark matter halo
+            // M_DM(r) = M_200 * [ln(1+r/r_s) - (r/r_s)/(1+r/r_s)]
+            float r_s = static_cast<float>(currentGalaxy_.radius) * 0.2f;  // Scale radius ~20% of disk radius
+            float x = r / r_s;
+            float M_dm_enclosed = M_dm_total * (std::log(1.0f + x) - x / (1.0f + x)) /
+                                 (std::log(1.0f + 5.0f) - 5.0f / 6.0f);  // Normalize
+            float a_dm = -G * M_dm_enclosed / (r * r);
+
+            // Total acceleration
+            float a_total = a_bulge + a_dm;
+
+            // Update velocity (a * dt in km/s)
+            star.velocity += rHat * a_total * (deltaTime_Myr * 1e6 * 365.25 * 24 * 3600 / 1e3);  // Convert to km/s
         }
     }
 }

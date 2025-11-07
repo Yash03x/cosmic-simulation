@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../../core/Module.hpp"
+#include "GalaxyPresets.hpp"
 #include <glm/glm.hpp>
 #include <vector>
 
@@ -12,21 +13,12 @@ namespace galaxy {
  * @brief Star particle for galaxy simulation
  */
 struct Star {
-    glm::vec3 position;
-    glm::vec3 velocity;
-    glm::vec3 color;
-    float mass;
-    float luminosity;
-};
-
-/**
- * @brief Galaxy types
- */
-enum class GalaxyType {
-    Spiral,      // Spiral galaxy (Milky Way type)
-    Elliptical,  // Elliptical galaxy
-    Irregular,   // Irregular galaxy
-    Barred       // Barred spiral galaxy
+    glm::vec3 position;      // Position in kpc
+    glm::vec3 velocity;      // Velocity in km/s
+    glm::vec3 color;         // RGB color (0-1)
+    float mass;              // Mass in solar masses
+    float luminosity;        // Luminosity in solar luminosities
+    float temperature;       // Surface temperature in Kelvin
 };
 
 /**
@@ -66,11 +58,10 @@ private:
     GLFWwindow* window_;
     bool initialized_;
 
-    // Galaxy parameters
-    GalaxyType galaxyType_;
-    int numStars_;
-    float galaxyRadius_;
-    float rotationSpeed_;
+    // Galaxy preset system
+    GalaxyProperties currentGalaxy_;
+    std::vector<GalaxyProperties> availableGalaxies_;
+    int selectedGalaxyIndex_;
 
     // Star data
     std::vector<Star> stars_;
